@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block titulo %}Relatórios{% endblock %}
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <h1>Relatórios</h1>
+  <p class="sub">
+    O sistema escreve os trechos que saem dos números. Ajuste o que quiser antes de
+    gerar — o texto fica salvo com o relatório.
+  </p>
+</div>
+
+{% if aviso %}<div class="aviso info">{{ aviso }}</div>{% endif %}
+
+{% if not prova %}
+  <div class="cartao vazio">Importe a planilha para poder gerar relatórios.</div>
+{% else %}
+
+<form class="filtros" method="get" action="/relatorios">
+  <div>
+    <label for="ciclo">Ciclo</label>
+    <select id="ciclo" name="ciclo" onchange="this.form.submit()">
+      {% for c in ciclos %}<option value="{{ c }}" {% if c == ciclo_atual %}selected{% endif %}>Ciclo {{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="fase">Fase</label>
+    <select id="fase" name="fase" onchange="this.form.submit()">
+      {% for f in fases %}<option value="{{ f }}" {% if f == fase_atual %}selected{% endif %}>{{ f }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="materia">Matéria</label>
+    <select id="materia" name="materia" onchange="this.form.submit()">
+      {% for m in materias %}<option value="{{ m }}" {% if m == materia_atual %}selected{% endif %}>{{ m }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+
+<form method="post" action="/relatorios/gerar">
+  <input type="hidden" name="prova_id" value="{{ prova.id }}">
+
+  <div class="secao">
+    <h2>O que vai no relatório</h2>
+    <p class="legenda">
+      Ciclo {{ prova.ciclo }} · {{ prova.materia.value }} · {{ prova.fase.value }} —
+      {{ montado.quadro.presentes|length }} presentes, média {{ fmt(montado.quadro.media) }},
+      {{ montado.quadro.questoes_para_revisar|length }} questões para revisar,
+      {{ montado.enunciados|length }} enunciado(s) disponível(is)
+      {%- if not montado.enunciados %} <em>— envie o PDF da prova em “Provas em PDF” para incluir os enunciados</em>{% endif %}
+    </p>
+  </div>
+
+  <div class="textos">
+    {% for titulo, texto in montado.textos.items() %}
+    <div class="cartao">
+      <label for="t{{ loop.index }}"><strong>{{ titulo }}</strong></label>
+      <textarea id="t{{ loop.index }}" name="texto_{{ titulo }}" rows="4">{{ texto }}</textarea>
+    </div>
+    {% endfor %}
+    <div class="cartao">
+      <label for="tlivre"><strong>LEITURA DA COORDENAÇÃO</strong></label>
+      <p class="legenda" style="margin:2px 0 6px">
+        O trecho interpretativo — o que os números não dizem sozinhos. Deixe em branco para omitir.
+      </p>
+      <textarea id="tlivre" name="texto_LEITURA DA COORDENAÇÃO" rows="4"
+                placeholder="Ex.: o ganho está vindo do topo da turma, não da base."></textarea>
+    </div>
+  </div>
+
+  <button class="botao" style="width:auto; padding:10px 22px; margin-top:14px" type="submit">
+    Gerar PDF e baixar
+  </button>
+</form>
+
+{% endif %}
+
+{% if gerados %}
+<div class="secao"><h2>Gerados recentemente</h2></div>
+<div class="cartao">
+  <table>
+    <thead><tr><th>Relatório</th><th class="num">Páginas</th><th class="num">Tamanho</th><th>Quando</th><th></th></tr></thead>
+    <tbody>
+      {% for g in gerados %}
+      <tr>
+        <td>{{ g.titulo }}</td>
+        <td class="num">{{ g.paginas }}</td>
+        <td class="num">{{ (g.tamanho / 1024)|round|int }} KB</td>
+        <td>{{ g.gerado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+        <td style="text-align:right"><a href="/relatorios/{{ g.id }}/baixar">baixar</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

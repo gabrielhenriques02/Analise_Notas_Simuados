@@ -197,7 +197,9 @@ class Importacao(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     arquivo: Mapped[str] = mapped_column(String(255))
     sha256: Mapped[str] = mapped_column(String(64), index=True)
-    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuario.id"))
+    usuario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuario.id", ondelete="SET NULL")
+    )
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     status: Mapped[str] = mapped_column(String(20), default="pendente")
     resumo: Mapped[str] = mapped_column(Text, default="{}")  # JSON
@@ -263,3 +265,30 @@ class RecorteQuestao(Base):
         import json
 
         return [tuple(r) for r in json.loads(self.apoio)] if self.apoio else []
+
+
+class RelatorioGerado(Base):
+    """PDF gerado e guardado para download, com os textos que a coordenacao ajustou."""
+
+    __tablename__ = "relatorio_gerado"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(30), default="fase")
+    prova_id: Mapped[int | None] = mapped_column(ForeignKey("prova.id", ondelete="SET NULL"))
+    titulo: Mapped[str] = mapped_column(String(200))
+    arquivo: Mapped[str] = mapped_column(String(255))       # dentro de data/saida
+    textos: Mapped[str] = mapped_column(Text, default="{}")  # JSON dos blocos editados
+    paginas: Mapped[int] = mapped_column(Integer, default=0)
+    tamanho: Mapped[int] = mapped_column(Integer, default=0)
+    usuario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuario.id", ondelete="SET NULL")
+    )
+    gerado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    prova: Mapped[Prova | None] = relationship()
+
+    @property
+    def textos_dict(self) -> dict[str, str]:
+        import json
+
+        return json.loads(self.textos or "{}")

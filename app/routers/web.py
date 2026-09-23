@@ -512,3 +512,153 @@ def imagem_da_questao(
     if imagem is None:
         raise NaoEncontrado("O enunciado desta questão ainda não foi enviado.")
     return FileResponse(imagem.caminho, media_type="image/png")
+
+
+# ── relatorios em PDF ───────────────────────────────────────────────────────────
+
+def _nome_do_arquivo(prova: Prova) -> str:
+    """Convencao unica; os relatorios originais divergiam no acento entre as fases."""
+    import unicodedata
+
+    def sem_acento(texto: str) -> str:
+        normalizado = unicodedata.normalize("NFKD", texto)
+        return "".join(c for c in normalizado if not unicodedata.combining(c))
+
+    fase = "1a Fase" if prova.fase is Fase.PRIMEIRA else "2a Fase"
+    materia = sem_acento(prova.materia.value).title()
+    return f"Relatorio - Ciclo {prova.ciclo} - {fase} - {materia}.pdf"
+
+
+@router.get("/relatorios", response_class=HTMLResponse)
+def relatorios(
+    request: Request,
+    ciclo: int | None = None,
+    fase: str | None = None,
+    materia: str | None = None,
+    aviso: str | None = None,
+    usuario: Usuario = Depends(auth.exigir_login),
+    escopo: auth.Escopo = Depends(auth.escopo),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.models import RelatorioGerado
+    from app.reports import fase as relatorio_fase
+
+    ciclos = _ciclos(s)
+    visiveis = escopo.materias()
+    if not ciclos or not visiveis:
+        return _render(request, "relatorios.html", pagina="relatorios", usuario=usuario,
+                       escopo=escopo, aviso=aviso, prova=None, gerados=[], ciclos=[], fases=[], materias=[])
+
+    alvo_ciclo = ciclo if ciclo in ciclos else ciclos[-1]
+    alvo_fase = Fase(fase) if fase in {f.value for f in Fase} else Fase.PRIMEIRA
+    if materia and materia in {m.value for m in Materia}:
+        escopo.exigir(materia)
+        escolhida = materia
+    else:
+        escolhida = visiveis[0].value
+
+    prova = M.obter_prova(s, alvo_ciclo, alvo_fase, escolhida)
+    montado = relatorio_fase.montar(s, prova) if prova else None
+
+    disponiveis = [
+        m.value for m in visiveis if M.obter_prova(s, alvo_ciclo, alvo_fase, m) is not None
+    ]
+    gerados = list(
+        s.scalars(
+            select(RelatorioGerado)
+            .order_by(RelatorioGerado.gerado_em.desc())
+            .limit(15)
+        )
+    )
+    if not escopo.admin:
+        gerados = [
+            g for g in gerados if g.prova is None or escopo.pode_ver(g.prova.materia)
+        ]
+
+    return _render(
+        request, "relatorios.html", pagina="relatorios", usuario=usuario, escopo=escopo,
+        aviso=aviso, prova=prova, montado=montado, gerados=gerados, ciclos=ciclos,
+        fases=[f.value for f in Fase], materias=disponiveis,
+        ciclo_atual=alvo_ciclo, fase_atual=alvo_fase.value, materia_atual=escolhida,
+    )
+
+
+@router.post("/relatorios/gerar", include_in_schema=False)
+async def gerar_relatorio(
+    request: Request,
+    usuario: Usuario = Depends(auth.exigir_login),
+    escopo: auth.Escopo = Depends(auth.escopo),
+    s: Session = Depends(auth.obter_sessao),
+):
+    import json
+
+    from app.models import RelatorioGerado
+    from app.reports import fase as relatorio_fase
+
+    formulario = await request.form()
+    prova = s.get(Prova, int(formulario.get("prova_id", 0)))
+    if prova is None:
+        raise NaoEncontrado("Prova não encontrada.")
+    escopo.exigir(prova.materia)
+
+    textos = {
+        chave[6:]: valor.strip()
+        for chave, valor in formulario.items()
+        if chave.startswith("texto_") and isinstance(valor, str) and valor.strip()
+    }
+
+    montado = relatorio_fase.montar(s, prova, textos)
+    dados = relatorio_fase.gerar(montado)
+
+    config.dir_saida.mkdir(parents=True, exist_ok=True)
+    nome = _nome_do_arquivo(prova)
+    (config.dir_saida / nome).write_bytes(dados)
+
+    import pymupdf
+
+    with pymupdf.open(stream=dados, filetype="pdf") as doc:
+        paginas = doc.page_count
+
+    registro = s.scalar(
+        select(RelatorioGerado).where(
+            RelatorioGerado.prova_id == prova.id, RelatorioGerado.tipo == "fase"
+        )
+    )
+    if registro is None:
+        registro = RelatorioGerado(tipo="fase", prova_id=prova.id)
+        s.add(registro)
+    registro.titulo = nome.removesuffix(".pdf")
+    registro.arquivo = nome
+    registro.textos = json.dumps(textos, ensure_ascii=False)
+    registro.paginas = paginas
+    registro.tamanho = len(dados)
+    registro.usuario_id = usuario.id
+    from datetime import datetime
+
+    registro.gerado_em = datetime.now()
+    s.flush()
+
+    return _voltar(f"/relatorios/{registro.id}/baixar")
+
+
+@router.get("/relatorios/{relatorio_id}/baixar", include_in_schema=False)
+def baixar_relatorio(
+    relatorio_id: int,
+    usuario: Usuario = Depends(auth.exigir_login),
+    escopo: auth.Escopo = Depends(auth.escopo),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from fastapi.responses import FileResponse
+
+    from app.models import RelatorioGerado
+
+    registro = s.get(RelatorioGerado, relatorio_id)
+    if registro is None:
+        raise NaoEncontrado("Relatório não encontrado.")
+    if registro.prova is not None:
+        escopo.exigir(registro.prova.materia)
+
+    caminho = config.dir_saida / registro.arquivo
+    if not caminho.exists():
+        raise NaoEncontrado("O arquivo não está mais disponível. Gere o relatório de novo.")
+    return FileResponse(caminho, media_type="application/pdf", filename=registro.arquivo)

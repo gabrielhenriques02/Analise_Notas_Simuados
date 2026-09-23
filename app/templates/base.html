@@ -16,6 +16,7 @@
       <nav>
         <a href="/painel" {% if pagina == 'painel' %}aria-current="page"{% endif %}>Painel</a>
         <a href="/provas" {% if pagina == 'provas' %}aria-current="page"{% endif %}>Provas</a>
+        <a href="/relatorios" {% if pagina == 'relatorios' %}aria-current="page"{% endif %}>Relatórios</a>
         {% if escopo and escopo.admin %}
         <a href="/faltas" {% if pagina == 'faltas' %}aria-current="page"{% endif %}>Faltas</a>
         <a href="/alunos" {% if pagina == 'alunos' %}aria-current="page"{% endif %}>Alunos</a>

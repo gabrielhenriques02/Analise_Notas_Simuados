@@ -235,3 +235,13 @@ tr.ausente td { color: var(--tinta-3); font-style: italic; }
 .enunciados figure { margin: 0; }
 .enunciados figcaption { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .enunciados figcaption .detalhe { flex-basis: 100%; font-size: 12px; color: var(--tinta-3); }
+
+/* ── editor de textos do relatório ──────────────────────────────────────── */
+
+.textos { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; }
+.textos label { font-size: 12px; color: var(--navy); letter-spacing: .03em; }
+.textos textarea {
+  width: 100%; margin-top: 6px; font: inherit; font-size: 13px; line-height: 1.45;
+  padding: 9px 10px; border: 1px solid var(--linha-forte); border-radius: 6px; resize: vertical;
+}
+.textos textarea:focus { outline: 2px solid var(--navy-medio); outline-offset: 1px; border-color: var(--navy-medio); }

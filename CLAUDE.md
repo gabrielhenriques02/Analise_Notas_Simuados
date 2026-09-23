@@ -65,6 +65,26 @@ Nota por matéria = `acertos × 10/12`. Média geral = `média(MAT, FÍS, QUÍ)`
 - Numeração: o PDF da 1ª fase traz 1–48 e a prova no banco traz 1–12 por matéria;
   `Prova.offset_numeracao` faz a ponte (Física 12, Química 24, Inglês 36).
 
+## Relatórios em PDF (app/reports/, app/charts/)
+
+- A4 paisagem (841,89 × 595,27), como os originais. Corpo em 7–8pt no lugar dos 5–6pt.
+- **Fonte:** DejaVu. A Inter está instalada mas só em `.otf` com contornos PostScript,
+  que o ReportLab não lê. A DejaVu cobre `≥ ≤ − º · —`.
+- **Carimbar o rodapé com Helvetica base-14 troca `—` por `·` em silêncio.** O total
+  de páginas só é conhecido no fim, então o rodapé é carimbado com PyMuPDF — usando
+  `fontfile` da DejaVu, nunca `fontname="helv"`.
+- **Recortes a 150 dpi:** um ponto do PDF vale 150/72 px. Abaixo de 45% do tamanho
+  natural o enunciado de 10pt cai para menos de 4,5pt e some. Por isso o texto de
+  apoio só entra junto quando a escala resultante se mantém acima disso — a folha de
+  constantes de Química, sozinha, torna qualquer questão ilegível.
+- **Gráficos:** um só gerador SVG (`app/charts/svg.py`) serve a tela e o PDF, este
+  via `svglib`, que converte px em pt no fator 0,75 — o passo das barras precisa ser
+  dividido por ele para casar com a altura de linha da tabela.
+- **Medido com o validador de paleta:** verde `#2e8b57` vs vermelho `#c83434` dá ΔE
+  5,1 em deuteranopia, abaixo do piso de 6 — indistinguíveis. O par realmente usado
+  na grade (verde sólido vs `#f8e5e5`) dá 33,6, e ainda assim as células levam ✓/✗.
+  Nunca remover o glifo.
+
 ## Privacidade — o repositório é PÚBLICO
 
 Nenhum dado de aluno vai para o git. Nunca commitar `.xlsx`, `.pdf`, `.db` nem nada de

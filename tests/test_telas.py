@@ -384,3 +384,68 @@ def test_tela_de_arquivos_e_so_da_coordenacao():
     c = logar(PROF)
     assert c.get("/arquivos", headers={"Accept": "text/html"}).status_code == 403
     c.__exit__(None, None, None)
+
+
+# ── geração de relatórios ───────────────────────────────────────────────────────
+
+@requer_planilha
+def test_tela_de_relatorios_abre_com_os_textos_gerados():
+    c = logar(ADMIN)
+    texto = c.get(
+        "/relatorios", params={"ciclo": 5, "fase": "1ª FASE", "materia": "MATEMÁTICA"}
+    ).text
+    assert 'name="texto_ONDE A TURMA ESTÁ"' in texto
+    assert 'name="texto_LEITURA DA COORDENAÇÃO"' in texto   # campo livre
+    assert "5,61" in texto
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_gerar_e_baixar_o_relatorio():
+    import pymupdf
+
+    from app.analytics.metrics import obter_prova
+    from app.models import Fase, Materia
+
+    s = Sessao()
+    prova_id = obter_prova(s, 5, Fase.PRIMEIRA, Materia.MATEMATICA).id
+    s.close()
+
+    c = logar(ADMIN)
+    resposta = c.post(
+        "/relatorios/gerar",
+        data={
+            "prova_id": prova_id,
+            "texto_ONDE A TURMA ESTÁ": "Melhor ciclo do ano até aqui.",
+            "texto_LEITURA DA COORDENAÇÃO": "O ganho vem do topo da turma.",
+        },
+        follow_redirects=False,
+    )
+    assert resposta.status_code == 303
+    destino = resposta.headers["location"]
+
+    baixado = c.get(destino)
+    assert baixado.status_code == 200
+    assert baixado.headers["content-type"] == "application/pdf"
+    assert "Relatorio%20-%20Ciclo%205" in baixado.headers["content-disposition"]
+
+    with pymupdf.open(stream=baixado.content, filetype="pdf") as doc:
+        primeira = doc[0].get_text()
+    assert "Melhor ciclo do ano" in primeira        # texto da coordenação
+    assert "O ganho vem do topo" in primeira        # bloco livre
+    assert "F4: 23%" in primeira                    # o gerado segue ali
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_professor_nao_gera_relatorio_de_outra_materia():
+    from app.analytics.metrics import obter_prova
+    from app.models import Fase, Materia
+
+    s = Sessao()
+    prova_id = obter_prova(s, 5, Fase.PRIMEIRA, Materia.MATEMATICA).id
+    s.close()
+
+    c = logar(PROF)   # professor de Química
+    assert c.post("/relatorios/gerar", data={"prova_id": prova_id}).status_code == 403
+    c.__exit__(None, None, None)
