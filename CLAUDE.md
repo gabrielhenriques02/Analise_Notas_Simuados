@@ -128,6 +128,37 @@ Dois arquivos por ciclo: `Resultado - 1a Fase - Ciclo N.xlsx` (aba
 - `marcas=6` com teto 10 dá passo 2; com o padrão 5 o passo vira 2,5 e as marcas
   saem arredondadas para 2 e 8.
 
+## Identidade visual da interface (app/static/estilo.css)
+
+A marca não foi inventada: azul `#364b9b`, amarelo `#fdc41f` e vermelho `#e30613` são
+os três valores do logotipo, e Lato + Libre Franklin são as fontes do próprio
+`madan.com.br`. As fontes ficam em `app/static/fontes/` — **nada de `@import` do Google
+Fonts**, o app precisa abrir sem internet.
+
+- **A página é uma folha, não um mural de cartões.** Hierarquia por filete: 2px azul sob
+  o título da tela, 1px azul sob cada seção, hairline entre linhas. Sem sombra, sem raio
+  nos blocos. O `.cartao` sobreviveu como nome de classe, mas não desenha caixa nenhuma.
+- **O amarelo aparece em exatamente três lugares** — aba aberta, primeiro indicador da
+  tela e filete do cartão de entrada. É o traço ascendente do logotipo e o mesmo recurso
+  (`linear-gradient(transparent 58%, amarelo 58%)`) que a escola usa como `.yellow-stripe`.
+  Cada novo uso rouba o sentido dele; o hover das linhas já foi amarelo e virou cinza-quente
+  por isso.
+- **O vermelho da marca (`#e30613`) fica só dentro do logotipo.** Vermelho na tela é
+  `--erro`, e só quer dizer "abaixo do corte / errou".
+- **Verde e vermelho são dado, nunca rótulo.** Nível de dificuldade é grandeza ordenada e
+  usa uma só matiz azul, claro→escuro (ΔE 8,4 e 43,2 entre os passos). Quando `.etiqueta.facil`
+  era verde, estava gastando a cor de estado num slot categórico.
+- **Os tons de estado são os mesmos dos PDFs e não se mexe neles.** Medido: branco sobre
+  `--acerto` dá 4,25:1 e `--erro` sobre `--erro-fraco` dá 4,34:1 — abaixo de 4,5. Não são
+  corrigidos de propósito, porque mudar aqui faz a tela discordar do relatório impresso;
+  quem sustenta a leitura é o glifo ✓/✗ e o rótulo escrito, que por isso nunca saem.
+- **Botão tem largura natural.** `.botao` era `width:100%`, e por isso cada botão do projeto
+  carregava `style="width:auto; padding:..."`. `.bloco` é a exceção (só o de entrar).
+- Utilitários em vez de `style=`: `.rolagem .apagado .miudo .afastado .colunas .acoes .largo
+  .estreito .pequeno .discreto`. Só sobra inline o que é dado (`width: {{ pct }}%`).
+- **Sem tema escuro, de propósito:** o artefato final é PDF em papel, e um segundo tema
+  seria mais uma paleta para divergir do impresso. A regra de `@media print` vale por ela.
+
 ## Privacidade — o repositório é PÚBLICO
 
 Nenhum dado de aluno vai para o git. Nunca commitar `.xlsx`, `.pdf`, `.db` nem nada de

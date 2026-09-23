@@ -13,7 +13,7 @@
   <p class="legenda">A aba <em>ALUNOS MADAN 2026</em> da planilha não é a lista definitiva: quem entrou depois não aparece nela.</p>
 </div>
 
-<div class="cartao" style="overflow-x:auto">
+<div class="cartao rolagem">
   <table>
     <thead>
       <tr>
@@ -33,10 +33,10 @@
         </td>
         <td class="num">{{ a.provas }}</td>
         <td class="num">{{ a.faltas or '—' }}</td>
-        <td style="text-align:right">
-          <form method="post" action="/alunos/{{ a.id }}/remover" style="display:inline"
+        <td class="num">
+          <form method="post" action="/alunos/{{ a.id }}/remover" class="acoes"
                 onsubmit="return confirm('Tirar {{ a.nome }} da turma? Os lançamentos ficam guardados e ele deixa de entrar nas estatísticas.')">
-            <button class="botao" style="width:auto; padding:4px 10px; font-size:12px; background:transparent; color:var(--tinta-3); border:1px solid var(--linha-forte)">Tirar da turma</button>
+            <button class="botao pequeno discreto">Tirar da turma</button>
           </form>
         </td>
       </tr>
@@ -56,10 +56,10 @@
       {% for a in inativos %}
       <tr>
         <td>{{ a.nome }}</td>
-        <td style="color:var(--tinta-3)">{{ a.provas }} lançamento(s)</td>
-        <td style="text-align:right">
-          <form method="post" action="/alunos/{{ a.id }}/devolver" style="display:inline">
-            <button class="botao" style="width:auto; padding:4px 10px; font-size:12px">Devolver à turma</button>
+        <td class="apagado">{{ a.provas }} lançamento(s)</td>
+        <td class="num">
+          <form method="post" action="/alunos/{{ a.id }}/devolver" class="acoes">
+            <button class="botao pequeno">Devolver à turma</button>
           </form>
         </td>
       </tr>

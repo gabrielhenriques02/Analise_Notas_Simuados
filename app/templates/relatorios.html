@@ -46,7 +46,7 @@
       {{ montado.quadro.presentes|length }} presentes, média {{ fmt(montado.quadro.media) }},
       {{ montado.quadro.questoes_para_revisar|length }} questões para revisar,
       {{ montado.enunciados|length }} enunciado(s) disponível(is)
-      {%- if not montado.enunciados %} <em>— envie o PDF da prova em “Provas em PDF” para incluir os enunciados</em>{% endif %}
+      {%- if not montado.enunciados %} <em>— envie o caderno da prova em “Arquivos” para incluir os enunciados</em>{% endif %}
     </p>
   </div>
 
@@ -58,8 +58,8 @@
     </div>
     {% endfor %}
     <div class="cartao">
-      <label for="tlivre"><strong>LEITURA DA COORDENAÇÃO</strong></label>
-      <p class="legenda" style="margin:2px 0 6px">
+      <label for="tlivre"><strong>Leitura da coordenação</strong></label>
+      <p class="legenda">
         O trecho interpretativo — o que os números não dizem sozinhos. Deixe em branco para omitir.
       </p>
       <textarea id="tlivre" name="texto_LEITURA DA COORDENAÇÃO" rows="4"
@@ -67,7 +67,7 @@
     </div>
   </div>
 
-  <button class="botao" style="width:auto; padding:10px 22px; margin-top:14px" type="submit">
+  <button class="botao afastado" type="submit">
     Gerar PDF e baixar
   </button>
 </form>
@@ -79,30 +79,30 @@
   <h2>Relatórios da turma inteira</h2>
   <p class="legenda">Cruzam todas as matérias, então são exclusivos da coordenação.</p>
 </div>
-<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px">
+<div class="colunas">
   <form class="cartao" method="post" action="/relatorios/potenciais">
-    <strong style="font-size:13px">Análise de potenciais de aprovação</strong>
-    <p class="legenda" style="margin:4px 0 8px">
+    <h3>Análise de potenciais de aprovação</h3>
+    <p class="legenda">
       Uma página por aluno: trajetória, aproveitamento por nível e frente, e onde cada um trava.
     </p>
-    <label style="font-size:12px; color:var(--tinta-3)">quantos alunos:
+    <label>quantos alunos:
       <input type="number" name="quantos" value="8" min="1" max="20"
-             style="width:56px; font:inherit; padding:4px 6px; border:1px solid var(--linha-forte); border-radius:5px">
+             class="estreito">
     </label>
     <textarea name="texto_GRUPO" rows="3" placeholder="Leitura da coordenação sobre o grupo (opcional)."
-              style="width:100%; margin-top:8px; font:inherit; font-size:13px; padding:8px; border:1px solid var(--linha-forte); border-radius:6px"></textarea>
-    <button class="botao" style="width:auto; padding:8px 18px; margin-top:8px">Gerar PDF e baixar</button>
+              class="largo"></textarea>
+    <button class="botao afastado">Gerar PDF e baixar</button>
   </form>
 
   <form class="cartao" method="post" action="/relatorios/unificado">
-    <strong style="font-size:13px">Relatório unificado</strong>
-    <p class="legenda" style="margin:4px 0 8px">
+    <h3>Relatório unificado</h3>
+    <p class="legenda">
       Visão executiva de todos os ciclos e as duas fases, com a classificação no Sistema Poliedro.
       {% if not tem_poliedro %}<strong>Sem dados do Poliedro importados</strong> — as colunas de ranking sairão vazias.{% endif %}
     </p>
     <textarea name="texto_PANORAMA" rows="3" placeholder="Leitura executiva do período (opcional)."
-              style="width:100%; margin-top:8px; font:inherit; font-size:13px; padding:8px; border:1px solid var(--linha-forte); border-radius:6px"></textarea>
-    <button class="botao" style="width:auto; padding:8px 18px; margin-top:8px">Gerar PDF e baixar</button>
+              class="largo"></textarea>
+    <button class="botao afastado">Gerar PDF e baixar</button>
   </form>
 </div>
 {% endif %}
@@ -119,7 +119,7 @@
         <td class="num">{{ g.paginas }}</td>
         <td class="num">{{ (g.tamanho / 1024)|round|int }} KB</td>
         <td>{{ g.gerado_em.strftime('%d/%m/%Y %H:%M') }}</td>
-        <td style="text-align:right"><a href="/relatorios/{{ g.id }}/baixar">baixar</a></td>
+        <td class="num"><a href="/relatorios/{{ g.id }}/baixar">baixar</a></td>
       </tr>
       {% endfor %}
     </tbody>

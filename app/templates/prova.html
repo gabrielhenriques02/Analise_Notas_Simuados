@@ -35,7 +35,7 @@
       {% for m in materias %}<option value="{{ m }}" {% if m == p.materia.value %}selected{% endif %}>{{ m }}</option>{% endfor %}
     </select>
   </div>
-  <noscript><button class="botao" style="width:auto" type="submit">Ver</button></noscript>
+  <noscript><button class="botao" type="submit">Ver</button></noscript>
 </form>
 
 <div class="secao"><h2>Visão da turma</h2></div>
@@ -83,7 +83,7 @@
   </p>
 </div>
 
-<div class="cartao" style="overflow-x:auto">
+<div class="cartao rolagem">
   <table class="grade">
     <thead>
       <tr>
@@ -159,7 +159,7 @@
       {% if q.alerta.value %}<span class="etiqueta {{ 'critica' if q.alerta.value == 'CRÍTICA' else 'atencao' }}">{{ q.alerta.value }}</span>{% endif %}
       <span class="pct">{{ fmt_pct(q.erro_pct) }} de erro</span>
     </div>
-    <div class="barra-trilho" style="margin-top:8px"
+    <div class="barra-trilho afastado"
          title="{{ fmt_pct(q.erro_pct) }} de erro">
       <span class="barra-preenche {% if q.alerta.value == 'CRÍTICA' %}critica{% elif q.alerta.value %}atencao{% endif %}"
             style="width: {{ q.erro_pct|round(1) }}%"></span>
@@ -177,7 +177,7 @@
       {% else %}
         média da turma {{ fmt(q.media) }}/{{ p.nota_maxima_questao|int }} ·
         {{ q.maxima }} nota máxima · {{ q.parcial_alta + q.parcial_baixa }} parcial · {{ q.zerada }} zeraram
-        <div class="empilhada" style="margin-top:6px" title="nota máxima {{ q.maxima }} · parcial ≥50% {{ q.parcial_alta }} · parcial &lt;50% {{ q.parcial_baixa }} · zerada {{ q.zerada }}">
+        <div class="empilhada afastado" title="nota máxima {{ q.maxima }} · parcial ≥50% {{ q.parcial_alta }} · parcial &lt;50% {{ q.parcial_baixa }} · zerada {{ q.zerada }}">
           {% for classe, n in [('s-total', q.maxima), ('s-alta', q.parcial_alta), ('s-baixa', q.parcial_baixa), ('s-zero', q.zerada)] %}
             {% if n %}<span class="{{ classe }}" style="flex: {{ n }}"></span>{% endif %}
           {% endfor %}
@@ -217,15 +217,15 @@
 
 {# ── frentes e níveis ────────────────────────────────────────────────────── #}
 <div class="secao"><h2>Aproveitamento por frente e por nível de dificuldade</h2></div>
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:12px">
+<div class="colunas">
   {% for titulo, grupos in [('Frentes de ' ~ p.materia.value|lower, quadro.por_frente()), ('Nível de dificuldade', quadro.por_nivel())] %}
   <div class="cartao">
     <table>
-      <thead><tr><th>{{ titulo }}</th><th style="width:45%">% de aproveitamento</th><th class="num">%</th></tr></thead>
+      <thead><tr><th>{{ titulo }}</th><th class="coluna-barra">% de aproveitamento</th><th class="num">%</th></tr></thead>
       <tbody>
         {% for g in grupos %}
         <tr>
-          <td>{{ g.rotulo }} <span style="color:var(--tinta-3)">({{ g.questoes }} q.)</span></td>
+          <td>{{ g.rotulo }} <span class="apagado">({{ g.questoes }} q.)</span></td>
           <td>
             <div class="barra-trilho" title="{{ fmt_pct(g.aproveitamento) }}">
               <span class="barra-preenche" style="width: {{ g.aproveitamento|round(1) }}%"></span>

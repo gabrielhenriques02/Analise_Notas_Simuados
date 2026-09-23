@@ -1,17 +1,24 @@
 {% extends "base.html" %}
-{% block titulo %}Provas em PDF{% endblock %}
+{% block titulo %}Arquivos{% endblock %}
 {% block conteudo %}
 <div class="cabecalho-pagina">
-  <h1>Provas em PDF</h1>
+  <h1>Arquivos</h1>
   <p class="sub">
-    Envie o caderno de cada prova e o sistema localiza sozinho onde começa e termina
-    cada questão, para mostrar o enunciado ao lado da estatística de acerto.
+    Os cadernos de prova em PDF e as planilhas de resultado do Sistema Poliedro.
   </p>
 </div>
 
 {% if aviso %}<div class="aviso info">{{ aviso }}</div>{% endif %}
 
-<div class="cartao" style="overflow-x:auto">
+<div class="secao">
+  <h2>Provas em PDF</h2>
+  <p class="legenda">
+    Enviado o caderno, o sistema localiza sozinho onde cada questão começa e termina,
+    para mostrar o enunciado ao lado da estatística de acerto.
+  </p>
+</div>
+
+<div class="cartao rolagem">
   <table>
     <thead>
       <tr>
@@ -22,24 +29,24 @@
     <tbody>
       {% for l in linhas %}
       <tr>
-        <td>Ciclo {{ l.ciclo }} · {{ l.materia }} <span style="color:var(--tinta-3)">· {{ l.fase }}</span></td>
+        <td>Ciclo {{ l.ciclo }} · {{ l.materia }} <span class="apagado">· {{ l.fase }}</span></td>
         <td>
           {% if l.arquivo %}{{ l.arquivo.nome_original }}
-          {% else %}<span style="color:var(--tinta-3)">—</span>{% endif %}
+          {% else %}<span class="apagado">—</span>{% endif %}
         </td>
         <td class="num">{{ l.arquivo.paginas if l.arquivo else '—' }}</td>
         <td class="num">
           {% if l.recortes %}
             <span class="etiqueta {{ 'aprovado' if l.recortes == l.questoes else 'atencao' }}">
               {{ l.recortes }}/{{ l.questoes }}</span>
-          {% else %}<span style="color:var(--tinta-3)">—</span>{% endif %}
+          {% else %}<span class="apagado">—</span>{% endif %}
         </td>
         <td>
           <form method="post" action="/arquivos/{{ l.id }}" enctype="multipart/form-data"
-                style="display:flex; gap:6px; align-items:center">
+                class="acoes">
             <input type="file" name="pdf" accept="application/pdf" required
-                   style="font-size:12px; max-width:190px">
-            <button class="botao" style="width:auto; padding:5px 12px; font-size:12px">Enviar</button>
+                   class="campo-arquivo">
+            <button class="botao pequeno">Enviar</button>
           </form>
         </td>
       </tr>
@@ -58,16 +65,16 @@
 </div>
 <div class="cartao">
   <form method="post" action="/poliedro/importar" enctype="multipart/form-data"
-        style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
-    <input type="file" name="planilhas" accept=".xlsx" multiple required>
-    <label style="font-size:12px; color:var(--tinta-3)">
+        class="acoes">
+    <input type="file" name="planilhas" accept=".xlsx" multiple required class="campo-arquivo">
+    <label>
       ciclo (só se o nome do arquivo não disser):
-      <input type="number" name="ciclo" min="1" max="12" style="width:64px; font:inherit; padding:5px 7px; border:1px solid var(--linha-forte); border-radius:6px">
+      <input type="number" name="ciclo" min="1" max="12" class="estreito">
     </label>
-    <button class="botao" style="width:auto; padding:7px 16px; font-size:13px">Importar</button>
+    <button class="botao">Importar</button>
   </form>
   {% if poliedro %}
-  <table style="margin-top:14px">
+  <table class="afastado">
     <thead><tr><th>Ciclo</th><th>Fase</th><th class="num">Alunos</th><th class="num">Base do ranking</th><th class="num">Melhor posição</th></tr></thead>
     <tbody>
       {% for p in poliedro %}
@@ -82,7 +89,7 @@
   {% endif %}
 </div>
 
-<p class="legenda" style="margin-top:12px">
+<p class="legenda afastado">
   Para a 1ª fase, envie o caderno completo das 48 questões em cada matéria — o sistema
   recorta a faixa certa (Matemática 1–12, Física 13–24, Química 25–36, Inglês 37–48).
 </p>

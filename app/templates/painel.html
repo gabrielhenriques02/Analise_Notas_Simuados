@@ -11,14 +11,15 @@
 </div>
 
 {% if not linhas %}
-  <div class="cartao vazio">Nenhuma prova importada ainda.</div>
+  <div class="cartao vazio">Nenhuma prova importada ainda. Assim que a planilha de correção
+    entrar, a média da turma por ciclo aparece aqui.</div>
 {% else %}
 <div class="secao">
   <h2>Média da turma por ciclo</h2>
   <p class="legenda">Só os presentes entram na média · corte da disciplina: {{ fmt(corte) }}</p>
 </div>
 
-<div class="cartao" style="overflow-x:auto">
+<div class="cartao rolagem">
   <table>
     <thead>
       <tr>
@@ -33,11 +34,11 @@
         <td>
           <a href="/provas?ciclo={{ ciclos[-1] }}&fase={{ linha.fase }}&materia={{ linha.materia }}">
             {{ linha.materia }}</a>
-          <span style="color:var(--tinta-3); font-size:12px"> · {{ linha.fase }}</span>
+          <span class="miudo"> · {{ linha.fase }}</span>
         </td>
         {% for media in linha.medias %}
         <td class="num">
-          {% if media is none %}<span style="color:var(--tinta-3)">—</span>
+          {% if media is none %}<span class="apagado">—</span>
           {% else %}{{ fmt(media) }}{% endif %}
         </td>
         {% endfor %}
