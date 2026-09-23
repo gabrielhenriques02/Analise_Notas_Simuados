@@ -101,20 +101,45 @@ class Reconciliacao:
 
 
 class Reconciliador:
-    """Casa as grafias da planilha com o roster, usando apelidos quando preciso."""
+    """Casa as grafias da planilha com a turma, usando apelidos quando preciso.
 
-    def __init__(self, roster: list[str], apelidos: dict[str, str] | None = None) -> None:
+    A turma e a uniao de duas fontes: a aba do roster e os alunos ja cadastrados no
+    banco. A segunda e indispensavel — alunos que entraram depois (caso do Augusto
+    Fabrete) nunca aparecem na aba, e sem isso os lancamentos deles seriam
+    descartados em silencio a cada reimportacao.
+    """
+
+    def __init__(
+        self,
+        roster: list[str],
+        apelidos: dict[str, str] | None = None,
+        conhecidos: dict[str, str] | None = None,
+        descartados: set[str] | None = None,
+    ) -> None:
         self._canonico: dict[str, str] = {}
         for nome in roster:
             self._canonico[normalizar_nome(nome)] = str(nome).strip()
+        # Alunos ja cadastrados prevalecem sobre a aba.
+        for chave, nome in (conhecidos or {}).items():
+            self._canonico[normalizar_nome(chave)] = str(nome).strip()
+
+        # Nomes que a coordenacao decidiu descartar saem da turma e deixam de
+        # aparecer como pendencia a cada importacao.
+        self._descartados = {normalizar_nome(n) for n in (descartados or ())}
+        for chave in self._descartados:
+            self._canonico.pop(chave, None)
+
         self._apelidos = dict(APELIDOS_CONHECIDOS)
         if apelidos:
             self._apelidos.update({normalizar_nome(k): normalizar_nome(v) for k, v in apelidos.items()})
 
+    def descartado(self, bruto: object) -> bool:
+        return normalizar_nome(bruto) in self._descartados
+
     def resolver(self, bruto: object) -> str | None:
         """Devolve o nome canonico, ou None se o nome nao for reconhecido."""
         chave = normalizar_nome(bruto)
-        if not chave:
+        if not chave or chave in self._descartados:
             return None
         if chave in self._canonico:
             return self._canonico[chave]
@@ -132,6 +157,8 @@ class Reconciliador:
         vistos: set[str] = set()
 
         for chave, (grafias, linhas, abas) in sorted(ocorrencias.items()):
+            if chave in self._descartados:
+                continue
             canonico = self.resolver(chave)
             if canonico:
                 resultado.reconhecidos[chave] = canonico

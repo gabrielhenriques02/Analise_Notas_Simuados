@@ -58,7 +58,7 @@ class Config:
     # Pastas de origem
     dir_planilha: Path = field(default_factory=lambda: _caminho("PLANILHA_DIR", "planilha_dados"))
     dir_relatorios_referencia: Path = field(
-        default_factory=lambda: _caminho("RELATORIOS_REFERENCIA_DIR", "exemplos_relatórios")
+        default_factory=lambda: _caminho("RELATORIOS_REFERENCIA_DIR", "exemplos_relatorios")
     )
     dir_provas_origem: Path = field(
         default_factory=lambda: _caminho("PROVAS_ORIGEM_DIR", "exemplos_pdf_provas")

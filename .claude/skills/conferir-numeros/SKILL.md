@@ -1,5 +1,5 @@
 ---
-description: Confere os números calculados pelo sistema contra os relatórios de referência em exemplos_relatórios. Use ao terminar qualquer mudança em app/analytics/.
+description: Confere os números calculados pelo sistema contra os relatórios de referência em exemplos_relatorios. Use ao terminar qualquer mudança em app/analytics/.
 allowed-tools: Bash(.venv/bin/pytest *) Bash(.venv/bin/python *)
 ---
 

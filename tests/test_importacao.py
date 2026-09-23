@@ -12,6 +12,12 @@ from app.ingest.importers import importar
 from app.models import Aluno, Falta, Fase, Materia, Prova, Resposta, ResultadoProva
 from tests.conftest import PLANILHA, requer_planilha
 
+# Decisoes da coordenacao (23/09/2026):
+#  - Augusto Fabrete e da turma; entrou depois e ficou fora da aba do roster
+#  - Arthur Damasceno e Vitor Hoth nao pertencem a turma
+ENTROU_DEPOIS = {"AUGUSTO FABRETE BRAGANCA"}
+FORA_DA_TURMA = {"ARTHUR DE CARVALHO FARIA DAMASCENO", "VITOR HOTH FRANCESE"}
+
 
 @pytest.fixture(scope="module")
 def banco():
@@ -28,7 +34,9 @@ def importado(banco):
     if not PLANILHA.exists():
         pytest.skip("planilha real ausente")
     s = banco()
-    resumo = importar(s, PLANILHA, alunos_a_criar={"AUGUSTO FABRETE BRAGANCA"})
+    resumo = importar(
+        s, PLANILHA, alunos_a_criar=ENTROU_DEPOIS, alunos_a_descartar=FORA_DA_TURMA
+    )
     s.commit()
     yield s, resumo
     s.close()
@@ -40,18 +48,37 @@ def test_resumo_da_importacao(importado):
     assert resumo.alunos_reconhecidos == 40
     assert resumo.provas == 45          # 5 ciclos x 9 provas
     assert resumo.respostas == 17856
-    # Arthur tem um unico lancamento e nao vira aluno sem aprovacao da coordenacao.
-    assert [p["nome"] for p in resumo.pendencias] == ["ARTHUR DE CARVALHO FARIA DAMASCENO"]
-    assert resumo.sem_dados == ["VITOR HOTH FRANCESE"]
+    # Depois das decisoes da coordenacao nao sobra nada para revisar.
+    assert resumo.pendencias == []
+    assert resumo.sem_dados == []
 
 
 @requer_planilha
-def test_augusto_entra_fora_do_roster(importado):
-    """Ele aparece nos relatorios como destaque, mas falta na aba ALUNOS MADAN 2026."""
+def test_turma_tem_quarenta_alunos_ativos(importado):
+    s, _ = importado
+    assert s.query(Aluno).filter(Aluno.ativo.is_(True)).count() == 40
+
+
+@requer_planilha
+def test_augusto_e_da_turma_mesmo_fora_do_roster(importado):
+    """Entrou depois e ficou fora da aba ALUNOS MADAN 2026, mas e aluno da turma."""
     s, _ = importado
     augusto = s.scalar(select(Aluno).where(Aluno.nome_normalizado == "AUGUSTO FABRETE BRAGANCA"))
     assert augusto is not None
-    assert augusto.no_roster is False
+    assert augusto.ativo is True
+    assert augusto.no_roster is False   # documenta que a aba esta incompleta
+
+
+@requer_planilha
+def test_descartados_ficam_inativos_e_nao_voltam(importado):
+    """Marcados como inativos em vez de apagados, para preservar o historico."""
+    s, _ = importado
+    for nome in FORA_DA_TURMA:
+        aluno = s.scalar(select(Aluno).where(Aluno.nome_normalizado == nome))
+        assert aluno is not None and aluno.ativo is False
+    # Vitor esta na aba do roster: a reimportacao nao pode ressuscita-lo.
+    assert not any(a.ativo for a in s.scalars(
+        select(Aluno).where(Aluno.nome_normalizado == "VITOR HOTH FRANCESE")))
 
 
 @requer_planilha
@@ -156,15 +183,22 @@ def test_inferencia_de_falta_supera_o_registro_real(importado):
 
 @requer_planilha
 def test_importar_duas_vezes_nao_duplica(banco):
-    """A importacao e idempotente: reenviar o mesmo arquivo atualiza, nao duplica."""
+    """Idempotente, e as decisoes da coordenacao nao precisam ser repetidas.
+
+    Regressao: o reconciliador so conhecia a aba do roster, entao numa reimportacao
+    sem repetir `alunos_a_criar` os 36 lancamentos do Augusto eram descartados em
+    silencio. Agora ele tambem le os alunos ja cadastrados.
+    """
     s = banco()
-    importar(s, PLANILHA, alunos_a_criar={"AUGUSTO FABRETE BRAGANCA"})
+    importar(s, PLANILHA, alunos_a_criar=ENTROU_DEPOIS, alunos_a_descartar=FORA_DA_TURMA)
     s.commit()
     antes = (s.query(Aluno).count(), s.query(Resposta).count(), s.query(ResultadoProva).count())
 
-    importar(s, PLANILHA, alunos_a_criar={"AUGUSTO FABRETE BRAGANCA"})
+    resumo = importar(s, PLANILHA)   # sem repetir nenhuma decisao
     s.commit()
     depois = (s.query(Aluno).count(), s.query(Resposta).count(), s.query(ResultadoProva).count())
 
     assert antes == depois
+    assert resumo.pendencias == []
+    assert resumo.alunos_reconhecidos == 40
     s.close()

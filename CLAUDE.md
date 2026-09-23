@@ -39,7 +39,7 @@ Nota por matéria = `acertos × 10/12`. Média geral = `média(MAT, FÍS, QUÍ)`
 ## Privacidade — o repositório é PÚBLICO
 
 Nenhum dado de aluno vai para o git. Nunca commitar `.xlsx`, `.pdf`, `.db` nem nada de
-`data/`, `planilha_dados/`, `exemplos_relatórios/`, `exemplos_pdf_provas/`.
+`data/`, `planilha_dados/`, `exemplos_relatorios/`, `exemplos_pdf_provas/`.
 O hook de `pre-commit` recusa; não contorne com `git add -f`.
 
 ## Ambiente
@@ -50,7 +50,7 @@ Em PyMuPDF, importar `pymupdf` (não `fitz`, que está descontinuado).
 
 ## Verificação
 
-Os relatórios em `exemplos_relatórios/` são a referência validada. Qualquer mudança em
+Os relatórios em `exemplos_relatorios/` são a referência validada. Qualquer mudança em
 `app/analytics/` deve manter estes números:
 
 | Referência | Esperado |

@@ -76,6 +76,17 @@ def _obter_ou_criar_aluno(s: Session, nome: str, no_roster: bool) -> Aluno:
     return aluno
 
 
+def _descartar_aluno(s: Session, nome: str) -> None:
+    """Marca como inativo em vez de apagar, preservando o historico."""
+    chave = normalizar_nome(nome)
+    aluno = s.scalar(select(Aluno).where(Aluno.nome_normalizado == chave))
+    if aluno is None:
+        aluno = Aluno(nome_canonico=str(nome).strip(), nome_normalizado=chave, no_roster=False)
+        s.add(aluno)
+    aluno.ativo = False
+    s.flush()
+
+
 def _obter_ou_criar_prova(s: Session, ciclo: int, fase: str, materia: str) -> Prova | None:
     formato = FORMATO_PROVAS.get((fase, materia))
     if formato is None:
@@ -128,8 +139,13 @@ def importar(
     usuario_id: int | None = None,
     apelidos_extra: dict[str, str] | None = None,
     alunos_a_criar: set[str] | None = None,
+    alunos_a_descartar: set[str] | None = None,
 ) -> ResumoImportacao:
-    """Le a planilha e grava tudo. `alunos_a_criar` libera pendencias aprovadas."""
+    """Le a planilha e grava tudo.
+
+    `alunos_a_criar` libera pendencias aprovadas pela coordenacao; `alunos_a_descartar`
+    marca nomes que nao pertencem a turma, que passam a ser ignorados para sempre.
+    """
     planilha = xlsx_reader.ler(caminho)
     resumo = ResumoImportacao(arquivo=caminho.name, sha256=_sha256(caminho))
 
@@ -137,13 +153,31 @@ def importar(
     for apelido in s.scalars(select(ApelidoAluno)):
         apelidos[apelido.nome_normalizado] = apelido.aluno.nome_normalizado
 
-    reconciliador = Reconciliador(planilha.roster, apelidos)
+    # Alunos ja cadastrados entram na turma mesmo sem estar na aba do roster, e os
+    # inativos saem dela. Sem isso, quem entrou depois perderia os lancamentos.
+    conhecidos = {
+        a.nome_normalizado: a.nome_canonico
+        for a in s.scalars(select(Aluno).where(Aluno.ativo.is_(True)))
+    }
+    descartados = {
+        a.nome_normalizado for a in s.scalars(select(Aluno).where(Aluno.ativo.is_(False)))
+    }
+    descartados |= {normalizar_nome(n) for n in (alunos_a_descartar or ())}
+
+    reconciliador = Reconciliador(planilha.roster, apelidos, conhecidos, descartados)
     reconciliacao = reconciliador.reconciliar(planilha.ocorrencias_de_nomes())
     resumo.sem_dados = reconciliacao.sem_dados
 
-    # Alunos do roster
+    # Descarte explicito: o aluno fica no banco como inativo, para nao voltar a ser
+    # criado pela aba do roster nem reaparecer como pendencia.
+    for nome in alunos_a_descartar or ():
+        _descartar_aluno(s, nome)
+
+    # Alunos do roster (os descartados nao voltam)
     antes = s.scalar(select(Aluno.id).limit(1))
     for nome in planilha.roster:
+        if reconciliador.descartado(nome):
+            continue
         _obter_ou_criar_aluno(s, nome, no_roster=True)
 
     # Pendencias: so viram aluno quando a coordenacao aprova
@@ -218,7 +252,11 @@ def _resolver_aluno(s, chave, reconciliador, aprovadas, cache):
         return cache[chave]
     canonico = reconciliador.resolver(chave)
     aluno = (
-        s.scalar(select(Aluno).where(Aluno.nome_normalizado == normalizar_nome(canonico)))
+        s.scalar(
+            select(Aluno).where(
+                Aluno.nome_normalizado == normalizar_nome(canonico), Aluno.ativo.is_(True)
+            )
+        )
         if canonico
         else None
     )
