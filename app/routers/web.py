@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import auth
@@ -38,8 +38,17 @@ BASE = {
 }
 
 
+class NaoEncontrado(HTTPException):
+    def __init__(self, detalhe: str = "Página não encontrada.") -> None:
+        super().__init__(status.HTTP_404_NOT_FOUND, detalhe)
+
+
 def _render(request: Request, nome: str, **contexto) -> HTMLResponse:
     return templates.TemplateResponse(request, nome, {**BASE, **contexto})
+
+
+def _voltar(destino: str) -> RedirectResponse:
+    return RedirectResponse(destino, status_code=status.HTTP_303_SEE_OTHER)
 
 
 # ── login ───────────────────────────────────────────────────────────────────────
@@ -203,3 +212,186 @@ def provas(
         fases=[f.value for f in Fase],
         materias=disponiveis,
     )
+
+
+# ── alunos ──────────────────────────────────────────────────────────────────────
+
+@router.get("/alunos", response_class=HTMLResponse)
+def alunos(
+    request: Request,
+    aviso: str | None = None,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    escopo: auth.Escopo = Depends(auth.escopo),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.models import Aluno, Falta, ResultadoProva
+
+    provas_por_aluno = dict(
+        s.execute(
+            select(ResultadoProva.aluno_id, func.count()).group_by(ResultadoProva.aluno_id)
+        ).all()
+    )
+    faltas_por_aluno = dict(
+        s.execute(
+            select(Falta.aluno_id, func.count())
+            .where(Falta.confirmada.is_(True))
+            .group_by(Falta.aluno_id)
+        ).all()
+    )
+
+    def montar(aluno):
+        return {
+            "id": aluno.id,
+            "nome": aluno.nome_canonico,
+            "rm": aluno.rm,
+            "no_roster": aluno.no_roster,
+            "provas": provas_por_aluno.get(aluno.id, 0),
+            "faltas": faltas_por_aluno.get(aluno.id, 0),
+        }
+
+    todos = list(s.scalars(select(Aluno).order_by(Aluno.nome_canonico)))
+    return _render(
+        request,
+        "alunos.html",
+        pagina="alunos",
+        usuario=usuario,
+        escopo=escopo,
+        aviso=aviso,
+        ativos=[montar(a) for a in todos if a.ativo],
+        inativos=[montar(a) for a in todos if not a.ativo],
+    )
+
+
+@router.post("/alunos/{aluno_id}/remover", include_in_schema=False)
+def remover_aluno(
+    aluno_id: int,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.models import Aluno
+
+    aluno = s.get(Aluno, aluno_id)
+    if aluno is None:
+        raise NaoEncontrado("Aluno não encontrado.")
+    aluno.ativo = False
+    return _voltar(f"/alunos?aviso={aluno.nome_canonico} saiu da turma. Os lançamentos ficaram guardados.")
+
+
+@router.post("/alunos/{aluno_id}/devolver", include_in_schema=False)
+def devolver_aluno(
+    aluno_id: int,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.models import Aluno
+
+    aluno = s.get(Aluno, aluno_id)
+    if aluno is None:
+        raise NaoEncontrado("Aluno não encontrado.")
+    aluno.ativo = True
+    return _voltar(f"/alunos?aviso={aluno.nome_canonico} voltou para a turma.")
+
+
+# ── faltas ──────────────────────────────────────────────────────────────────────
+
+@router.get("/faltas", response_class=HTMLResponse)
+def faltas(
+    request: Request,
+    fase: str | None = None,
+    materia: str | None = None,
+    situacao: str = "pendentes",
+    aviso: str | None = None,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    escopo: auth.Escopo = Depends(auth.escopo),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.models import Aluno, Falta, ResultadoProva
+
+    alvo_fase = Fase(fase) if fase in {f.value for f in Fase} else Fase.SEGUNDA
+    alvo_materia = materia if materia in {m.value for m in Materia} else Materia.QUIMICA.value
+
+    total = s.query(Falta).count()
+    pendentes = s.query(Falta).filter(Falta.confirmada.is_(None)).count()
+    confirmadas = s.query(Falta).filter(Falta.confirmada.is_(True)).count()
+
+    provas = list(
+        s.scalars(
+            select(Prova)
+            .where(Prova.fase == alvo_fase, Prova.materia == Materia(alvo_materia))
+            .order_by(Prova.ciclo)
+        )
+    )
+    nomes = {a.id: a.nome_canonico for a in s.scalars(select(Aluno))}
+    grupos = []
+
+    for prova in provas:
+        registros = list(s.scalars(select(Falta).where(Falta.prova_id == prova.id)))
+        if situacao == "pendentes":
+            registros = [f for f in registros if f.confirmada is None]
+        if not registros:
+            continue
+        notas = {
+            r.aluno_id: r.nota
+            for r in s.scalars(select(ResultadoProva).where(ResultadoProva.prova_id == prova.id))
+        }
+        quadro = M.desempenho(s, prova)
+        grupos.append(
+            {
+                "ciclo": prova.ciclo,
+                "fase": prova.fase.value,
+                "materia": prova.materia.value,
+                "presentes": len(quadro.presentes),
+                "total": quadro.total_matriculados,
+                "media": quadro.media,
+                "pendentes": sum(1 for f in registros if f.confirmada is None),
+                "faltas": sorted(
+                    (
+                        {
+                            "id": f.id,
+                            "nome": nomes.get(f.aluno_id, "?"),
+                            "nota": notas.get(f.aluno_id),
+                            "confirmada": f.confirmada,
+                        }
+                        for f in registros
+                    ),
+                    key=lambda x: x["nome"],
+                ),
+            }
+        )
+
+    volta = f"/faltas?fase={alvo_fase.value}&materia={alvo_materia}&situacao={situacao}"
+    return _render(
+        request,
+        "faltas.html",
+        pagina="faltas",
+        usuario=usuario,
+        escopo=escopo,
+        aviso=aviso,
+        grupos=grupos,
+        pendentes=pendentes,
+        confirmadas=confirmadas,
+        descartadas=total - pendentes - confirmadas,
+        fases=[f.value for f in Fase],
+        materias=[m.value for m in Materia],
+        fase_atual=alvo_fase.value,
+        materia_atual=alvo_materia,
+        situacao=situacao,
+        volta=volta,
+    )
+
+
+@router.post("/faltas/{falta_id}", include_in_schema=False)
+def decidir_falta(
+    falta_id: int,
+    decisao: str = Form(...),
+    volta: str = Form("/faltas"),
+    usuario: Usuario = Depends(auth.exigir_admin),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.models import Falta
+
+    falta = s.get(Falta, falta_id)
+    if falta is None:
+        raise NaoEncontrado("Falta não encontrada.")
+    falta.confirmada = decisao == "faltou"
+    return _voltar(volta)

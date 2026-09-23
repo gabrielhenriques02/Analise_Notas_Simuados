@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block titulo %}Faltas{% endblock %}
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <h1>Faltas</h1>
+  <p class="sub">
+    A planilha não tem coluna de falta. O sistema propõe quem zerou a prova inteira,
+    mas quem fez a prova e tirou zero fica idêntico a quem faltou — só você sabe a diferença.
+  </p>
+</div>
+
+{% if aviso %}<div class="aviso info">{{ aviso }}</div>{% endif %}
+
+<div class="indicadores" style="margin-bottom:8px">
+  <div class="indicador">
+    <div class="rotulo">Aguardando revisão</div>
+    <div class="valor">{{ pendentes }}</div>
+    <div class="nota">propostas pelo sistema</div>
+  </div>
+  <div class="indicador">
+    <div class="rotulo">Confirmadas</div>
+    <div class="valor">{{ confirmadas }}</div>
+    <div class="nota">contam como falta</div>
+  </div>
+  <div class="indicador">
+    <div class="rotulo">Descartadas</div>
+    <div class="valor">{{ descartadas }}</div>
+    <div class="nota">fez a prova e tirou zero</div>
+  </div>
+</div>
+
+<form class="filtros" method="get" action="/faltas">
+  <div>
+    <label for="fase">Fase</label>
+    <select id="fase" name="fase" onchange="this.form.submit()">
+      {% for f in fases %}<option value="{{ f }}" {% if f == fase_atual %}selected{% endif %}>{{ f }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="materia">Matéria</label>
+    <select id="materia" name="materia" onchange="this.form.submit()">
+      {% for m in materias %}<option value="{{ m }}" {% if m == materia_atual %}selected{% endif %}>{{ m }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="situacao">Mostrar</label>
+    <select id="situacao" name="situacao" onchange="this.form.submit()">
+      <option value="pendentes" {% if situacao == 'pendentes' %}selected{% endif %}>Só as pendentes</option>
+      <option value="todas" {% if situacao == 'todas' %}selected{% endif %}>Todas</option>
+    </select>
+  </div>
+</form>
+
+{% if not grupos %}
+  <div class="cartao vazio">Nenhuma falta para revisar aqui.</div>
+{% endif %}
+
+{% for g in grupos %}
+<div class="secao">
+  <h2>Ciclo {{ g.ciclo }} — {{ g.materia }} · {{ g.fase }}</h2>
+  <p class="legenda">
+    {{ g.presentes }} presentes de {{ g.total }} · média atual {{ fmt(g.media) }}
+    {%- if g.pendentes %} · {{ g.pendentes }} aguardando sua decisão{% endif %}
+  </p>
+</div>
+<div class="cartao">
+  <table>
+    <thead>
+      <tr><th>Aluno</th><th>Situação</th><th class="num">Nota</th><th style="text-align:right">Decisão</th></tr>
+    </thead>
+    <tbody>
+      {% for f in g.faltas %}
+      <tr>
+        <td>{{ f.nome }}</td>
+        <td>
+          {% if f.confirmada is none %}<span class="etiqueta atencao">aguardando</span>
+          {% elif f.confirmada %}<span class="etiqueta cortado">faltou</span>
+          {% else %}<span class="etiqueta aprovado">fez a prova</span>{% endif %}
+        </td>
+        <td class="num">{{ fmt(f.nota) }}</td>
+        <td style="text-align:right">
+          <form method="post" action="/faltas/{{ f.id }}" style="display:inline-flex; gap:6px">
+            <input type="hidden" name="volta" value="{{ volta }}">
+            <button class="botao" name="decisao" value="faltou"
+                    style="width:auto; padding:4px 10px; font-size:12px; {% if f.confirmada %}background:var(--erro){% else %}background:transparent; color:var(--tinta-2); border:1px solid var(--linha-forte){% endif %}">Faltou</button>
+            <button class="botao" name="decisao" value="fez"
+                    style="width:auto; padding:4px 10px; font-size:12px; {% if f.confirmada is not none and not f.confirmada %}background:var(--acerto){% else %}background:transparent; color:var(--tinta-2); border:1px solid var(--linha-forte){% endif %}">Fez a prova</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+{% endblock %}

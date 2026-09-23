@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block titulo %}Alunos{% endblock %}
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <h1>Alunos</h1>
+  <p class="sub">{{ ativos|length }} na turma{% if inativos %} · {{ inativos|length }} fora da turma{% endif %}</p>
+</div>
+
+{% if aviso %}<div class="aviso info">{{ aviso }}</div>{% endif %}
+
+<div class="secao">
+  <h2>Turma</h2>
+  <p class="legenda">A aba <em>ALUNOS MADAN 2026</em> da planilha não é a lista definitiva: quem entrou depois não aparece nela.</p>
+</div>
+
+<div class="cartao" style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th class="num">#</th><th>Aluno</th><th>RM</th><th>Na lista da planilha</th>
+        <th class="num">Provas</th><th class="num">Faltas</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in ativos %}
+      <tr>
+        <td class="num">{{ loop.index }}</td>
+        <td>{{ a.nome }}</td>
+        <td>{{ a.rm or '—' }}</td>
+        <td>
+          {% if a.no_roster %}<span class="etiqueta aprovado">sim</span>
+          {% else %}<span class="etiqueta atencao">entrou depois</span>{% endif %}
+        </td>
+        <td class="num">{{ a.provas }}</td>
+        <td class="num">{{ a.faltas or '—' }}</td>
+        <td style="text-align:right">
+          <form method="post" action="/alunos/{{ a.id }}/remover" style="display:inline"
+                onsubmit="return confirm('Tirar {{ a.nome }} da turma? Os lançamentos ficam guardados e ele deixa de entrar nas estatísticas.')">
+            <button class="botao" style="width:auto; padding:4px 10px; font-size:12px; background:transparent; color:var(--tinta-3); border:1px solid var(--linha-forte)">Tirar da turma</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if inativos %}
+<div class="secao">
+  <h2>Fora da turma</h2>
+  <p class="legenda">Não entram em nenhuma estatística. Os lançamentos continuam guardados, então dá para reverter.</p>
+</div>
+<div class="cartao">
+  <table>
+    <tbody>
+      {% for a in inativos %}
+      <tr>
+        <td>{{ a.nome }}</td>
+        <td style="color:var(--tinta-3)">{{ a.provas }} lançamento(s)</td>
+        <td style="text-align:right">
+          <form method="post" action="/alunos/{{ a.id }}/devolver" style="display:inline">
+            <button class="botao" style="width:auto; padding:4px 10px; font-size:12px">Devolver à turma</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

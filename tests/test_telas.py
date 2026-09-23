@@ -192,3 +192,135 @@ def test_larguras_de_barra_sao_arredondadas():
     for largura in larguras:
         assert len(largura.split(".")[-1]) <= 1, f"largura sem arredondar: {largura}"
     c.__exit__(None, None, None)
+
+
+# ── páginas que o menu promete ──────────────────────────────────────────────────
+
+@requer_planilha
+def test_todo_link_do_menu_abre():
+    """Regressão: o menu anunciava /alunos e /faltas antes de as rotas existirem,
+    e o clique caía num 404 com JSON cru."""
+    import re
+
+    c = logar(ADMIN)
+    painel = c.get("/painel").text
+    links = {href for href in re.findall(r'<nav.*?</nav>', painel, re.S)[0].split('"')
+             if href.startswith("/")}
+    assert {"/painel", "/provas", "/alunos", "/faltas"} <= links
+
+    for link in links:
+        resposta = c.get(link, follow_redirects=False)
+        assert resposta.status_code in (200, 303), f"{link} devolveu {resposta.status_code}"
+    c.__exit__(None, None, None)
+
+
+def test_pagina_inexistente_e_uma_pagina_e_nao_json():
+    c = logar(ADMIN)
+    resposta = c.get("/nao-existe", headers={"Accept": "text/html"})
+    assert resposta.status_code == 404
+    assert "Página não encontrada" in resposta.text
+    assert "Voltar ao painel" in resposta.text
+    c.__exit__(None, None, None)
+
+
+def test_api_continua_respondendo_json():
+    """Só quem pede HTML recebe página; um cliente de API segue com JSON."""
+    c = logar(ADMIN)
+    resposta = c.get("/nao-existe", headers={"Accept": "application/json"})
+    assert resposta.status_code == 404
+    assert resposta.json()["detail"]
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_professor_recebe_pagina_de_403_e_nao_erro_cru():
+    c = logar(PROF)
+    for rota in ("/alunos", "/faltas"):
+        resposta = c.get(rota, headers={"Accept": "text/html"})
+        assert resposta.status_code == 403
+        assert "Sem acesso a esta área" in resposta.text
+    c.__exit__(None, None, None)
+
+
+# ── faltas ──────────────────────────────────────────────────────────────────────
+
+@requer_planilha
+def test_decidir_falta_muda_a_media_da_prova():
+    """O que faz a 2ª fase fechar com o relatório.
+
+    Inferência sozinha: 32 presentes e média 3,24. O relatório traz 34 e 3,05 —
+    dois alunos fizeram a prova e tiraram zero.
+    """
+    from app.analytics import metrics as M
+    from app.models import Falta, Fase, Materia
+
+    c = logar(ADMIN)
+    s = Sessao()
+    prova = M.obter_prova(s, 5, Fase.SEGUNDA, Materia.MATEMATICA)
+    antes = M.desempenho(s, prova)
+    assert len(antes.presentes) == 32
+
+    pendentes = [
+        f.id
+        for f in s.query(Falta)
+        .filter(Falta.prova_id == prova.id, Falta.confirmada.is_(None))
+        .all()
+    ][:2]
+    assert len(pendentes) == 2
+    s.close()
+
+    for ident in pendentes:
+        assert c.post(f"/faltas/{ident}", data={"decisao": "fez", "volta": "/faltas"}).status_code == 200
+
+    s = Sessao()
+    depois = M.desempenho(s, M.obter_prova(s, 5, Fase.SEGUNDA, Materia.MATEMATICA))
+    assert len(depois.presentes) == 34
+    assert round(depois.media, 2) == 3.05
+
+    for ident in pendentes:                      # devolve o banco ao estado anterior
+        s.get(Falta, ident).confirmada = None
+    s.commit()
+    s.close()
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_tela_de_faltas_explica_a_ambiguidade():
+    c = logar(ADMIN)
+    texto = c.get("/faltas").text
+    assert "não tem coluna de falta" in texto
+    assert "tirou zero" in texto      # o caso que a inferência não separa
+    c.__exit__(None, None, None)
+
+
+# ── alunos ──────────────────────────────────────────────────────────────────────
+
+@requer_planilha
+def test_tela_de_alunos_marca_quem_entrou_depois():
+    c = logar(ADMIN)
+    texto = c.get("/alunos").text
+    assert "AUGUSTO FABRETE BRAGANCA" in texto
+    assert "entrou depois" in texto    # não está na aba do roster
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_tirar_e_devolver_aluno_da_turma():
+    from app.models import Aluno
+
+    c = logar(ADMIN)
+    s = Sessao()
+    aluno = s.query(Aluno).filter(Aluno.ativo.is_(True)).first()
+    ident, nome = aluno.id, aluno.nome_canonico
+    s.close()
+
+    c.post(f"/alunos/{ident}/remover")
+    s = Sessao()
+    assert s.get(Aluno, ident).ativo is False
+    s.close()
+
+    c.post(f"/alunos/{ident}/devolver")
+    s = Sessao()
+    assert s.get(Aluno, ident).ativo is True     # lançamentos preservados
+    s.close()
+    c.__exit__(None, None, None)
