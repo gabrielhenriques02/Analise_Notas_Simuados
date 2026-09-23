@@ -193,6 +193,20 @@ def provas(
     quadro = M.desempenho(s, prova)
     variacao, media_anterior = M.variacao_entre_ciclos(s, prova.ciclo, prova.fase, prova.materia)
 
+    from app.models import Questao, RecorteQuestao
+
+    ids = {q.numero: q.id for q in s.scalars(select(Questao).where(Questao.prova_id == prova.id))}
+    for estatistica in quadro.questoes:
+        estatistica.id = ids.get(estatistica.numero)
+    recortes = {
+        r.questao_id: r
+        for r in s.scalars(
+            select(RecorteQuestao).where(RecorteQuestao.questao_id.in_(list(ids.values())))
+        )
+    }
+    com_enunciado = set(recortes)
+    com_apoio = {ident for ident, r in recortes.items() if r.apoio}
+
     # So oferece no seletor as materias que existem naquele ciclo e fase.
     disponiveis = [
         m.value for m in visiveis if M.obter_prova(s, alvo_ciclo, alvo_fase, m) is not None
@@ -211,6 +225,8 @@ def provas(
         ciclos=ciclos,
         fases=[f.value for f in Fase],
         materias=disponiveis,
+        com_enunciado=com_enunciado,
+        com_apoio=com_apoio,
     )
 
 
@@ -395,3 +411,104 @@ def decidir_falta(
         raise NaoEncontrado("Falta não encontrada.")
     falta.confirmada = decisao == "faltou"
     return _voltar(volta)
+
+
+# ── provas em PDF e recortes ────────────────────────────────────────────────────
+
+@router.get("/arquivos", response_class=HTMLResponse)
+def arquivos(
+    request: Request,
+    aviso: str | None = None,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    escopo: auth.Escopo = Depends(auth.escopo),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.models import ArquivoProva, Questao, RecorteQuestao
+
+    provas = list(s.scalars(select(Prova).order_by(Prova.ciclo, Prova.fase, Prova.materia)))
+    arquivos_por_prova = {a.prova_id: a for a in s.scalars(select(ArquivoProva))}
+    recortes = {
+        r.questao_id: r for r in s.scalars(select(RecorteQuestao))
+    }
+
+    linhas = []
+    for prova in provas:
+        questoes = list(s.scalars(select(Questao).where(Questao.prova_id == prova.id)))
+        com_recorte = sum(1 for q in questoes if q.id in recortes)
+        revisados = sum(1 for q in questoes if q.id in recortes and recortes[q.id].revisado)
+        linhas.append(
+            {
+                "id": prova.id,
+                "ciclo": prova.ciclo,
+                "fase": prova.fase.value,
+                "materia": prova.materia.value,
+                "questoes": len(questoes),
+                "recortes": com_recorte,
+                "revisados": revisados,
+                "arquivo": arquivos_por_prova.get(prova.id),
+            }
+        )
+
+    return _render(
+        request, "arquivos.html", pagina="arquivos", usuario=usuario,
+        escopo=escopo, aviso=aviso, linhas=linhas,
+    )
+
+
+@router.post("/arquivos/{prova_id}", include_in_schema=False)
+async def enviar_prova(
+    prova_id: int,
+    request: Request,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.provas import servico
+
+    prova = s.get(Prova, prova_id)
+    if prova is None:
+        raise NaoEncontrado("Prova não encontrada.")
+
+    formulario = await request.form()
+    enviado = formulario.get("pdf")
+    if enviado is None or not getattr(enviado, "filename", ""):
+        return _voltar("/arquivos?aviso=Escolha um arquivo PDF.")
+
+    dados = await enviado.read()
+    if not dados.startswith(b"%PDF"):
+        return _voltar(f"/arquivos?aviso={enviado.filename} não é um PDF.")
+
+    registro = servico.guardar_pdf(s, prova, enviado.filename, dados)
+    resumo = servico.segmentar(s, prova, registro)
+    servico.limpar_cache(prova.id)
+
+    recado = (
+        f"{prova.materia.value} · Ciclo {prova.ciclo}: {resumo.casadas} de "
+        f"{resumo.questoes_da_prova} questões localizadas no PDF"
+    )
+    if not resumo.completo:
+        recado += " — confira os recortes antes de usar"
+    return _voltar(f"/arquivos?aviso={recado}")
+
+
+@router.get("/questoes/{questao_id}/imagem", include_in_schema=False)
+def imagem_da_questao(
+    questao_id: int,
+    apoio: bool = False,
+    usuario: Usuario = Depends(auth.exigir_login),
+    escopo: auth.Escopo = Depends(auth.escopo),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from fastapi.responses import FileResponse
+
+    from app.models import Questao
+    from app.provas import servico
+
+    questao = s.get(Questao, questao_id)
+    if questao is None:
+        raise NaoEncontrado("Questão não encontrada.")
+    escopo.exigir(questao.prova.materia)
+
+    imagem = servico.imagem_da_questao(s, questao, com_apoio=apoio)
+    if imagem is None:
+        raise NaoEncontrado("O enunciado desta questão ainda não foi enviado.")
+    return FileResponse(imagem.caminho, media_type="image/png")

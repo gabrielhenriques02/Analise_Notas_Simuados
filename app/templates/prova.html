@@ -164,6 +164,13 @@
       <span class="barra-preenche {% if q.alerta.value == 'CRÍTICA' %}critica{% elif q.alerta.value %}atencao{% endif %}"
             style="width: {{ q.erro_pct|round(1) }}%"></span>
     </div>
+    {% if q.id in com_enunciado %}
+    <details class="enunciado">
+      <summary>ver enunciado</summary>
+      <img loading="lazy" src="/questoes/{{ q.id }}/imagem{% if q.id in com_apoio %}?apoio=true{% endif %}"
+           alt="Enunciado da questão {{ q.numero_no_caderno }}">
+    </details>
+    {% endif %}
     <div class="detalhe">
       {% if objetiva %}
         {{ q.acertos }}/{{ q.presentes }} acertos
@@ -180,6 +187,33 @@
   </div>
   {% endfor %}
 </div>
+
+{# ── enunciados a revisar ────────────────────────────────────────────────── #}
+{% set revisar = quadro.questoes_para_revisar | selectattr('id', 'in', com_enunciado) | list %}
+{% if revisar %}
+<div class="secao">
+  <h2>Enunciados das questões com erro ≥ 50%</h2>
+  <p class="legenda">— prioridade de revisão em sala, da pior para a melhor</p>
+</div>
+<div class="enunciados">
+  {% for q in revisar %}
+  <figure class="cartao">
+    <figcaption>
+      <strong>Questão {{ q.numero_no_caderno }}</strong>
+      {% if q.nivel %}<span class="etiqueta {{ q.nivel|lower|replace('á','a')|replace('é','e')|replace('í','i') }}">{{ q.nivel }}</span>{% endif %}
+      {% if q.frente %}<span class="etiqueta frente">{{ q.frente }}</span>{% endif %}
+      <span class="pct">{{ fmt_pct(q.erro_pct) }} de erro</span>
+      <div class="detalhe">
+        {% if objetiva %}{{ q.acertos }}/{{ q.presentes }} acertos
+        {% else %}média da turma {{ fmt(q.media) }}/{{ p.nota_maxima_questao|int }} · {{ q.zerada }} zeraram{% endif %}
+      </div>
+    </figcaption>
+    <img loading="lazy" src="/questoes/{{ q.id }}/imagem{% if q.id in com_apoio %}?apoio=true{% endif %}"
+         alt="Enunciado da questão {{ q.numero_no_caderno }}">
+  </figure>
+  {% endfor %}
+</div>
+{% endif %}
 
 {# ── frentes e níveis ────────────────────────────────────────────────────── #}
 <div class="secao"><h2>Aproveitamento por frente e por nível de dificuldade</h2></div>

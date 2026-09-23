@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titulo %}Provas em PDF{% endblock %}
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <h1>Provas em PDF</h1>
+  <p class="sub">
+    Envie o caderno de cada prova e o sistema localiza sozinho onde começa e termina
+    cada questão, para mostrar o enunciado ao lado da estatística de acerto.
+  </p>
+</div>
+
+{% if aviso %}<div class="aviso info">{{ aviso }}</div>{% endif %}
+
+<div class="cartao" style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th>Prova</th><th>Arquivo</th><th class="num">Páginas</th>
+        <th class="num">Questões localizadas</th><th>Enviar</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in linhas %}
+      <tr>
+        <td>Ciclo {{ l.ciclo }} · {{ l.materia }} <span style="color:var(--tinta-3)">· {{ l.fase }}</span></td>
+        <td>
+          {% if l.arquivo %}{{ l.arquivo.nome_original }}
+          {% else %}<span style="color:var(--tinta-3)">—</span>{% endif %}
+        </td>
+        <td class="num">{{ l.arquivo.paginas if l.arquivo else '—' }}</td>
+        <td class="num">
+          {% if l.recortes %}
+            <span class="etiqueta {{ 'aprovado' if l.recortes == l.questoes else 'atencao' }}">
+              {{ l.recortes }}/{{ l.questoes }}</span>
+          {% else %}<span style="color:var(--tinta-3)">—</span>{% endif %}
+        </td>
+        <td>
+          <form method="post" action="/arquivos/{{ l.id }}" enctype="multipart/form-data"
+                style="display:flex; gap:6px; align-items:center">
+            <input type="file" name="pdf" accept="application/pdf" required
+                   style="font-size:12px; max-width:190px">
+            <button class="botao" style="width:auto; padding:5px 12px; font-size:12px">Enviar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="legenda" style="margin-top:12px">
+  Para a 1ª fase, envie o caderno completo das 48 questões em cada matéria — o sistema
+  recorta a faixa certa (Matemática 1–12, Física 13–24, Química 25–36, Inglês 37–48).
+</p>
+{% endblock %}

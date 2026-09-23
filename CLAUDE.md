@@ -46,6 +46,25 @@ Nota por matéria = `acertos × 10/12`. Média geral = `média(MAT, FÍS, QUÍ)`
 - `RM` em `CORREÇÃO REDAÇÃO` mistura número e string com TAB (`"\t0383083"`).
 - Arredondar na leitura: o arquivo guarda ruído de float (`5.0999999999999996`).
 
+## Recortes das questões (app/provas/)
+
+- **Margens são medidas por documento, nunca fixas.** O logo do cabeçalho termina em
+  y≈46 na prova de Física, y≈71 em Matemática e Química, y≈75 na 1ª fase. Uma
+  constante única erra dos dois lados: 62 descartava as questões 5 e 8 de Física,
+  40 fazia o recorte da 1ª fase engolir o logo.
+- **`get_pixmap(clip=...)` devolve o pedaço posicionado nas coordenadas da página**
+  e `copy()` só copia a interseção. Sempre `set_origin(0, topo)` antes de empilhar,
+  senão um recorte do pé da página sai em branco — com o arquivo do tamanho certo.
+- **Texto de apoio tem duas redações**: "As questões 37 a 40 referem-se ao texto a
+  seguir" e "Leia o texto a seguir para responder às questões de 01 a 03". A folha
+  de constantes não cita questão nenhuma e vale para a prova inteira.
+- **Nunca exibir texto extraído em exatas.** A matemática vem do OMML do Word em
+  linhas de base separadas e sai como `cosx3ya.cos³y−=`. A imagem é a única forma
+  fiel. Expoentes ficam ACIMA da linha do marcador `Questão n.` — o limite entre
+  questões precisa recuar até o topo visual do bloco, incluindo desenhos.
+- Numeração: o PDF da 1ª fase traz 1–48 e a prova no banco traz 1–12 por matéria;
+  `Prova.offset_numeracao` faz a ponte (Física 12, Química 24, Inglês 36).
+
 ## Privacidade — o repositório é PÚBLICO
 
 Nenhum dado de aluno vai para o git. Nunca commitar `.xlsx`, `.pdf`, `.db` nem nada de

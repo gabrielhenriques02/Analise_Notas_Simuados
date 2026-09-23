@@ -30,14 +30,15 @@ class DesempenhoAluno:
 
 @dataclass
 class EstatisticaQuestao:
-    numero: int
-    numero_no_caderno: int
-    nivel: str | None
-    frente: str | None
-    presentes: int
-    acertos: int          # nota maxima
-    media: float          # media da nota na questao
-    acerto_pct: float
+    id: int | None = field(default=None, init=False)  # preenchido pela camada web
+    numero: int = 0
+    numero_no_caderno: int = 0
+    nivel: str | None = None
+    frente: str | None = None
+    presentes: int = 0
+    acertos: int = 0      # nota maxima
+    media: float = 0.0    # media da nota na questao
+    acerto_pct: float = 0.0
     # Distribuicao das correcoes na 2ª fase: nota maxima / parcial >=50% / parcial <50% / zerada
     maxima: int = 0
     parcial_alta: int = 0

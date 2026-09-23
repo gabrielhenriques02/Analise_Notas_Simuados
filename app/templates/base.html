@@ -19,6 +19,7 @@
         {% if escopo and escopo.admin %}
         <a href="/faltas" {% if pagina == 'faltas' %}aria-current="page"{% endif %}>Faltas</a>
         <a href="/alunos" {% if pagina == 'alunos' %}aria-current="page"{% endif %}>Alunos</a>
+        <a href="/arquivos" {% if pagina == 'arquivos' %}aria-current="page"{% endif %}>Provas em PDF</a>
         {% endif %}
         <span class="quem">{{ usuario.nome }}</span>
         <a href="/sair">Sair</a>

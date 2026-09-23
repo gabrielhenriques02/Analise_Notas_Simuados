@@ -324,3 +324,63 @@ def test_tirar_e_devolver_aluno_da_turma():
     assert s.get(Aluno, ident).ativo is True     # lançamentos preservados
     s.close()
     c.__exit__(None, None, None)
+
+
+# ── enunciados das questões ─────────────────────────────────────────────────────
+
+@requer_planilha
+def test_tela_da_prova_mostra_o_enunciado():
+    """Ciclo 1 de Química tem o PDF enviado, então os recortes aparecem."""
+    c = logar(ADMIN)
+    texto = c.get("/provas", params={"ciclo": 1, "fase": "2ª FASE", "materia": "QUÍMICA"}).text
+    assert "/questoes/" in texto and "/imagem" in texto
+    assert "ver enunciado" in texto
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_imagem_do_enunciado_e_servida():
+    import re
+
+    c = logar(ADMIN)
+    pagina = c.get("/provas", params={"ciclo": 1, "fase": "2ª FASE", "materia": "QUÍMICA"}).text
+    caminho = re.search(r"/questoes/\d+/imagem", pagina).group(0)
+
+    resposta = c.get(caminho)
+    assert resposta.status_code == 200
+    assert resposta.headers["content-type"] == "image/png"
+    assert len(resposta.content) > 3000
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_professor_nao_baixa_imagem_de_outra_materia():
+    """O endpoint de imagem é uma porta fácil de esquecer no controle de acesso."""
+    from app.analytics.metrics import obter_prova
+    from app.models import Fase, Materia
+
+    s = Sessao()
+    de_matematica = sorted(
+        obter_prova(s, 1, Fase.SEGUNDA, Materia.MATEMATICA).questoes, key=lambda q: q.numero
+    )[0].id
+    de_quimica = sorted(
+        obter_prova(s, 1, Fase.SEGUNDA, Materia.QUIMICA).questoes, key=lambda q: q.numero
+    )[0].id
+    s.close()
+
+    c = logar(PROF)   # professor de Química
+    assert c.get(f"/questoes/{de_quimica}/imagem").status_code == 200
+    assert c.get(f"/questoes/{de_matematica}/imagem").status_code == 403
+    c.__exit__(None, None, None)
+
+
+def test_imagem_exige_login():
+    with TestClient(app, follow_redirects=False) as c:
+        assert c.get("/questoes/1/imagem").status_code == 303
+
+
+@requer_planilha
+def test_tela_de_arquivos_e_so_da_coordenacao():
+    c = logar(PROF)
+    assert c.get("/arquivos", headers={"Accept": "text/html"}).status_code == 403
+    c.__exit__(None, None, None)

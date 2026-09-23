@@ -211,3 +211,55 @@ class Constante(Base):
     chave: Mapped[str] = mapped_column(String(60), primary_key=True)
     valor: Mapped[str] = mapped_column(String(120))
     descricao: Mapped[str] = mapped_column(String(255), default="")
+
+
+class ArquivoProva(Base):
+    """PDF da prova enviado pela coordenacao."""
+
+    __tablename__ = "arquivo_prova"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    prova_id: Mapped[int] = mapped_column(
+        ForeignKey("prova.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    nome_original: Mapped[str] = mapped_column(String(255))
+    arquivo: Mapped[str] = mapped_column(String(255))   # nome dentro de data/provas
+    sha256: Mapped[str] = mapped_column(String(64))
+    paginas: Mapped[int] = mapped_column(Integer, default=0)
+    enviado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    prova: Mapped[Prova] = relationship()
+
+
+class RecorteQuestao(Base):
+    """Onde cada questao esta dentro do PDF.
+
+    As regioes sao propostas pelo segmentador e podem ser ajustadas pela
+    coordenacao; `revisado` marca quem ja passou pelo olho humano.
+    """
+
+    __tablename__ = "recorte_questao"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    questao_id: Mapped[int] = mapped_column(
+        ForeignKey("questao.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    regioes: Mapped[str] = mapped_column(Text)            # JSON [[pagina, y0, y1], ...]
+    apoio: Mapped[str | None] = mapped_column(Text)       # JSON das regioes do apoio
+    apoio_descricao: Mapped[str | None] = mapped_column(String(255))
+    revisado: Mapped[bool] = mapped_column(Boolean, default=False)
+    observacao: Mapped[str | None] = mapped_column(String(255))
+
+    questao: Mapped[Questao] = relationship()
+
+    @property
+    def regioes_lista(self) -> list[tuple[int, float, float]]:
+        import json
+
+        return [tuple(r) for r in json.loads(self.regioes)]
+
+    @property
+    def apoio_lista(self) -> list[tuple[int, float, float]]:
+        import json
+
+        return [tuple(r) for r in json.loads(self.apoio)] if self.apoio else []
