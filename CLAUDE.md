@@ -17,6 +17,16 @@ exibe as análises na interface e gera relatórios em PDF.
 - **Gabarito** aceita **múltiplas alternativas corretas** (`A/E`) e o estado
   `ANULADA`, que conta como acerto para todos.
 - **Acerto é derivado** de `alternativa_marcada == gabarito`, não importado como 0/1.
+- **Lista de revisão exclui as difíceis.** O KPI "QUESTÕES COM ERRO ≥ 50%" e a seção
+  de enunciados contam só **fácil e média** com acerto < 50%. O relatório da 2ª fase
+  diz explicitamente: "as de nível difícil constam apenas na análise acima". É por
+  isso que o Ciclo 5 de Matemática conta 4 e não 5.
+- **Alerta** (`CRÍTICA` = fácil, `ATENÇÃO` = média/difícil) vale para todos os níveis;
+  não confundir com a lista de revisão.
+- **Presença na 2ª fase depende da falta confirmada.** A inferência por prova zerada
+  conta a mais: no Ciclo 5 de Matemática ela vê 7 ausentes, o relatório registra 5.
+  Quando a coordenação marca a falta como `confirmada=False`, o aluno volta a contar
+  e os números batem com o relatório (34 presentes, média 3,05, mediana 2,60).
 
 ## Mapeamento das questões (1ª fase, 48 questões)
 
