@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Análise de Simulados{% endblock %} · Turma ITA 2026</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='estilo.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="faixa">
+      <div class="marca">
+        Análise de Simulados
+        <small>Madan · Turma ITA 2026</small>
+      </div>
+      <nav>
+        <a href="/painel" {% if pagina == 'painel' %}aria-current="page"{% endif %}>Painel</a>
+        <a href="/provas" {% if pagina == 'provas' %}aria-current="page"{% endif %}>Provas</a>
+        {% if escopo and escopo.admin %}
+        <a href="/faltas" {% if pagina == 'faltas' %}aria-current="page"{% endif %}>Faltas</a>
+        <a href="/alunos" {% if pagina == 'alunos' %}aria-current="page"{% endif %}>Alunos</a>
+        {% endif %}
+        <span class="quem">{{ usuario.nome }}</span>
+        <a href="/sair">Sair</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    {% block conteudo %}{% endblock %}
+  </main>
+</body>
+</html>

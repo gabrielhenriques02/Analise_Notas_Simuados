@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% set p = quadro.prova %}
+{% block titulo %}{{ p.materia.value }} · Ciclo {{ p.ciclo }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <h1>Desempenho em {{ p.materia.value }}</h1>
+  <p class="sub">
+    Ciclo {{ p.ciclo }} — {{ p.fase.value }} ·
+    {% if p.fase.value == '1ª FASE' %}
+      questões {{ 1 + p.offset_numeracao }} a {{ p.n_questoes + p.offset_numeracao }} da prova
+    {% else %}
+      prova discursiva, {{ p.n_questoes }} questões (0–{{ p.nota_maxima_questao|int }} cada)
+    {% endif %}
+    · {{ quadro.presentes|length }} alunos avaliados de {{ quadro.total_matriculados }} matriculados
+  </p>
+</div>
+
+<form class="filtros" method="get" action="/provas">
+  <div>
+    <label for="ciclo">Ciclo</label>
+    <select id="ciclo" name="ciclo" onchange="this.form.submit()">
+      {% for c in ciclos %}<option value="{{ c }}" {% if c == p.ciclo %}selected{% endif %}>Ciclo {{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="fase">Fase</label>
+    <select id="fase" name="fase" onchange="this.form.submit()">
+      {% for f in fases %}<option value="{{ f }}" {% if f == p.fase.value %}selected{% endif %}>{{ f }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="materia">Matéria</label>
+    <select id="materia" name="materia" onchange="this.form.submit()">
+      {% for m in materias %}<option value="{{ m }}" {% if m == p.materia.value %}selected{% endif %}>{{ m }}</option>{% endfor %}
+    </select>
+  </div>
+  <noscript><button class="botao" style="width:auto" type="submit">Ver</button></noscript>
+</form>
+
+<div class="secao"><h2>Visão da turma</h2></div>
+<div class="indicadores">
+  <div class="indicador">
+    <div class="rotulo">Média da turma</div>
+    <div class="valor">{{ fmt(quadro.media) }}</div>
+    <div class="nota">corte da disciplina: {{ fmt(corte) }}{% if quadro.mediana is not none %} · mediana {{ fmt(quadro.mediana) }}{% endif %}</div>
+  </div>
+  <div class="indicador">
+    <div class="rotulo">Variação vs. Ciclo {{ p.ciclo - 1 }}</div>
+    <div class="valor {% if variacao and variacao > 0 %}positivo{% elif variacao and variacao < 0 %}negativo{% endif %}">{{ fmt_sinal(variacao) }}</div>
+    <div class="nota">{% if media_anterior is not none %}Ciclo {{ p.ciclo - 1 }}: {{ fmt(media_anterior) }}{% else %}sem ciclo anterior{% endif %}</div>
+  </div>
+  <div class="indicador">
+    <div class="rotulo">Acima do corte</div>
+    <div class="valor">{{ quadro.acima_do_corte }}/{{ quadro.presentes|length }}</div>
+    <div class="nota">{{ fmt_pct(quadro.percentual_acima_do_corte) }} dos presentes</div>
+  </div>
+  <div class="indicador">
+    <div class="rotulo">Média dos 5 melhores</div>
+    <div class="valor">{{ fmt(quadro.media_top) }}</div>
+    <div class="nota">maior nota: {{ fmt(quadro.maior_nota) }}</div>
+  </div>
+  <div class="indicador">
+    <div class="rotulo">Questões com erro ≥ 50%</div>
+    <div class="valor">{{ quadro.questoes_para_revisar|length }}</div>
+    <div class="nota">
+      {%- set f = quadro.questoes_para_revisar | selectattr('nivel', 'equalto', 'FÁCIL') | list | length -%}
+      {%- set m = quadro.questoes_para_revisar | selectattr('nivel', 'equalto', 'MÉDIO') | list | length -%}
+      {{ f }} de nível fácil · {{ m }} de nível médio
+    </div>
+  </div>
+</div>
+
+{# ── grade ───────────────────────────────────────────────────────────────── #}
+<div class="secao">
+  <h2>{% if objetiva %}Acertos{% else %}Nota{% endif %} de cada aluno por questão</h2>
+  <p class="legenda">
+    {% if objetiva %}
+      ✓ acerto, ✗ erro · a barra vermelha à esquerda marca quem está abaixo do corte
+    {% else %}
+      0 a {{ p.nota_maxima_questao|int }} por questão · o tom acompanha a nota, e o número é sempre a fonte da leitura
+    {% endif %}
+  </p>
+</div>
+
+<div class="cartao" style="overflow-x:auto">
+  <table class="grade">
+    <thead>
+      <tr>
+        <th class="num">#</th>
+        <th>Aluno</th>
+        {% for q in quadro.questoes %}<th class="q">{{ q.numero_no_caderno }}</th>{% endfor %}
+        <th class="num">Nota</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in quadro.presentes %}
+      <tr {% if a.nota <= corte %}class="abaixo-do-corte"{% endif %}>
+        <td class="num">{{ loop.index }}</td>
+        <td class="aluno">{{ a.nome }}</td>
+        {% for q in quadro.questoes %}
+          {% set nota = a.notas_por_questao.get(q.numero, 0) %}
+          <td class="cel">
+            {% if objetiva %}
+              {% if nota >= p.nota_maxima_questao %}
+                <span class="marca-q certo" title="Questão {{ q.numero_no_caderno }}: acertou">✓</span>
+              {% else %}
+                <span class="marca-q errado" title="Questão {{ q.numero_no_caderno }}: errou">✗</span>
+              {% endif %}
+            {% else %}
+              <span class="marca-q {{ classe_nota(nota, p.nota_maxima_questao) }}"
+                    title="Questão {{ q.numero_no_caderno }}: {{ fmt(nota, 0) }} de {{ p.nota_maxima_questao|int }}">{{ nota|round|int }}</span>
+            {% endif %}
+          </td>
+        {% endfor %}
+        <td class="num"><strong>{{ fmt(a.nota) }}</strong></td>
+      </tr>
+      {% endfor %}
+      {% for nome in quadro.ausentes %}
+      <tr class="ausente">
+        <td class="num">—</td>
+        <td colspan="{{ quadro.questoes|length + 1 }}">{{ nome }} — ausente, não realizou a prova</td>
+        <td class="num">—</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="legenda-cores">
+    {% if objetiva %}
+      <span><i class="amostra marca-q certo">✓</i> acerto</span>
+      <span><i class="amostra marca-q errado">✗</i> erro</span>
+    {% else %}
+      <span><i class="amostra marca-q total">{{ p.nota_maxima_questao|int }}</i> nota máxima</span>
+      <span><i class="amostra marca-q parcial">5</i> parcial ≥ 50%</span>
+      <span><i class="amostra marca-q fraco">2</i> parcial &lt; 50%</span>
+      <span><i class="amostra marca-q zero">0</i> zerada</span>
+    {% endif %}
+    <span>Ausentes ficam fora de todas as estatísticas.</span>
+  </div>
+</div>
+
+{# ── questões ────────────────────────────────────────────────────────────── #}
+<div class="secao">
+  <h2>Nível, frente e índice de erro de cada questão</h2>
+  <p class="legenda">
+    <strong>Crítica</strong> = questão fácil com acerto &lt; 50% ·
+    <strong>Atenção</strong> = média ou difícil com acerto &lt; 50%
+  </p>
+</div>
+
+<div class="questoes">
+  {% for q in quadro.questoes %}
+  <div class="questao">
+    <div class="linha1">
+      <span class="numero">Q{{ q.numero_no_caderno }}</span>
+      {% if q.nivel %}<span class="etiqueta {{ q.nivel|lower|replace('á','a')|replace('é','e')|replace('í','i') }}">{{ q.nivel }}</span>{% endif %}
+      {% if q.frente %}<span class="etiqueta frente">{{ q.frente }}</span>{% endif %}
+      {% if q.alerta.value %}<span class="etiqueta {{ 'critica' if q.alerta.value == 'CRÍTICA' else 'atencao' }}">{{ q.alerta.value }}</span>{% endif %}
+      <span class="pct">{{ fmt_pct(q.erro_pct) }} de erro</span>
+    </div>
+    <div class="barra-trilho" style="margin-top:8px"
+         title="{{ fmt_pct(q.erro_pct) }} de erro">
+      <span class="barra-preenche {% if q.alerta.value == 'CRÍTICA' %}critica{% elif q.alerta.value %}atencao{% endif %}"
+            style="width: {{ q.erro_pct|round(1) }}%"></span>
+    </div>
+    <div class="detalhe">
+      {% if objetiva %}
+        {{ q.acertos }}/{{ q.presentes }} acertos
+      {% else %}
+        média da turma {{ fmt(q.media) }}/{{ p.nota_maxima_questao|int }} ·
+        {{ q.maxima }} nota máxima · {{ q.parcial_alta + q.parcial_baixa }} parcial · {{ q.zerada }} zeraram
+        <div class="empilhada" style="margin-top:6px" title="nota máxima {{ q.maxima }} · parcial ≥50% {{ q.parcial_alta }} · parcial &lt;50% {{ q.parcial_baixa }} · zerada {{ q.zerada }}">
+          {% for classe, n in [('s-total', q.maxima), ('s-alta', q.parcial_alta), ('s-baixa', q.parcial_baixa), ('s-zero', q.zerada)] %}
+            {% if n %}<span class="{{ classe }}" style="flex: {{ n }}"></span>{% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ── frentes e níveis ────────────────────────────────────────────────────── #}
+<div class="secao"><h2>Aproveitamento por frente e por nível de dificuldade</h2></div>
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:12px">
+  {% for titulo, grupos in [('Frentes de ' ~ p.materia.value|lower, quadro.por_frente()), ('Nível de dificuldade', quadro.por_nivel())] %}
+  <div class="cartao">
+    <table>
+      <thead><tr><th>{{ titulo }}</th><th style="width:45%">% de aproveitamento</th><th class="num">%</th></tr></thead>
+      <tbody>
+        {% for g in grupos %}
+        <tr>
+          <td>{{ g.rotulo }} <span style="color:var(--tinta-3)">({{ g.questoes }} q.)</span></td>
+          <td>
+            <div class="barra-trilho" title="{{ fmt_pct(g.aproveitamento) }}">
+              <span class="barra-preenche" style="width: {{ g.aproveitamento|round(1) }}%"></span>
+            </div>
+          </td>
+          <td class="num">{{ fmt_pct(g.aproveitamento) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

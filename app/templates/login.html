@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar · Análise de Simulados</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='estilo.css') }}">
+</head>
+<body>
+  <div class="tela-login">
+    <form class="caixa-login" method="post" action="/entrar">
+      <h1>Análise de Simulados</h1>
+      <p class="sub">Madan · Turma ITA 2026</p>
+
+      {% if erro %}<div class="aviso erro">{{ erro }}</div>{% endif %}
+
+      <div class="campo">
+        <label for="email">E-mail</label>
+        <input id="email" name="email" type="email" autocomplete="username"
+               required autofocus value="{{ email or '' }}">
+      </div>
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="botao" type="submit">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

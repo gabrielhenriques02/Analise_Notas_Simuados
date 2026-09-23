@@ -27,6 +27,15 @@ scripts/install-hooks.sh # instala o hook que bloqueia commit de dado de aluno
 scripts/run.sh           # sobe em http://127.0.0.1:8000
 ```
 
+Depois, crie a primeira conta de coordenação:
+
+```bash
+.venv/bin/python scripts/criar_admin.py coordenacao@madan.com.br "Coordenação"
+```
+
+O comando imprime uma senha inicial. A aplicação se recusa a abrir sessão enquanto a
+`SECRET_KEY` do `.env` for a de exemplo — gere a sua com o comando acima.
+
 O `bootstrap.sh` funciona mesmo em sistemas cujo Python não traz `ensurepip` — ele
 baixa o `get-pip.py` e instala o pip dentro do ambiente virtual, sem exigir `sudo`.
 

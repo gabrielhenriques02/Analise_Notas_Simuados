@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
-from app.config import config
+from app.auth import NaoAutenticado
+from app.config import RAIZ, config
+from app.routers import web
 
 
 @asynccontextmanager
@@ -23,17 +26,16 @@ app = FastAPI(
     redoc_url=None,
 )
 
+app.mount("/static", StaticFiles(directory=str(RAIZ / "app" / "static")), name="static")
+app.include_router(web.router)
 
-@app.get("/saude")
+
+@app.exception_handler(NaoAutenticado)
+async def sem_sessao(request: Request, exc: NaoAutenticado):
+    """Quem nao esta logado vai para a tela de login, nao para um erro cru."""
+    return RedirectResponse("/entrar", status_code=303)
+
+
+@app.get("/saude", include_in_schema=False)
 def saude() -> dict[str, str]:
     return {"status": "ok", "ambiente": config.ambiente}
-
-
-@app.get("/", response_class=HTMLResponse)
-def inicio() -> str:
-    return (
-        "<!doctype html><html lang=\'pt-BR\'><meta charset=\'utf-8\'>"
-        "<title>Análise de Simulados</title>"
-        "<h1>Análise de Simulados — Turma ITA 2026</h1>"
-        "<p>Ambiente preparado. As telas entram na próxima etapa.</p>"
-    )

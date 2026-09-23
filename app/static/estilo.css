@@ -1,0 +1,224 @@
+/* Análise de Simulados — Turma ITA 2026
+   Paleta extraída dos relatórios em PDF. Verde/vermelho/laranja são cores de
+   ESTADO: nunca carregam significado sozinhas — sempre vêm com glifo ou rótulo,
+   porque verde-vermelho é o par que some no daltonismo mais comum. */
+
+:root {
+  /* marca */
+  --navy:        #192b4a;
+  --navy-medio:  #2e4a73;
+  --ouro:        #f4c62f;
+
+  /* estado (fixo, nunca tematizado) */
+  --acerto:      #2e8b57;
+  --acerto-fraco:#e1f1e7;
+  --erro:        #c83434;
+  --erro-fraco:  #f8e5e5;
+  --atencao:     #e68a25;
+  --atencao-fraco:#feefdd;
+  --parcial:     #7bc49c;
+
+  /* tinta e superfície */
+  --tinta:       #1f242e;
+  --tinta-2:     #4a515e;
+  --tinta-3:     #737983;
+  --superficie:  #ffffff;
+  --fundo:       #f6f7f9;
+  --linha:       #e2e5ea;
+  --linha-forte: #c7ccd4;
+
+  --raio: 8px;
+  --sombra: 0 1px 2px rgba(25, 43, 74, .06), 0 4px 12px rgba(25, 43, 74, .05);
+  --fonte: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--fonte);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--tinta);
+  background: var(--fundo);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { line-height: 1.25; margin: 0; font-weight: 600; }
+a { color: var(--navy-medio); }
+
+/* ── cabeçalho ──────────────────────────────────────────────────────────── */
+
+.topo {
+  background: var(--navy);
+  color: #fff;
+  border-bottom: 3px solid var(--ouro);
+}
+.topo .faixa {
+  max-width: 1400px; margin: 0 auto; padding: 14px 24px;
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+}
+.marca { font-weight: 600; letter-spacing: .01em; }
+.marca small { display: block; font-weight: 400; font-size: 12px; opacity: .75; }
+.topo nav { display: flex; gap: 18px; margin-left: auto; align-items: center; flex-wrap: wrap; }
+.topo nav a { color: #fff; text-decoration: none; opacity: .85; font-size: 14px; padding: 4px 0; }
+.topo nav a:hover, .topo nav a[aria-current="page"] { opacity: 1; box-shadow: inset 0 -2px 0 var(--ouro); }
+.topo .quem { font-size: 13px; opacity: .8; }
+
+main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+/* ── títulos de página ──────────────────────────────────────────────────── */
+
+.cabecalho-pagina { margin-bottom: 20px; }
+.cabecalho-pagina h1 { font-size: 22px; }
+.cabecalho-pagina .sub { color: var(--tinta-3); font-size: 14px; margin-top: 4px; }
+
+.secao { margin: 28px 0 12px; }
+.secao h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--navy); }
+.secao .legenda { font-size: 13px; color: var(--tinta-3); margin-top: 3px; }
+
+.cartao {
+  background: var(--superficie); border: 1px solid var(--linha);
+  border-radius: var(--raio); box-shadow: var(--sombra); padding: 18px;
+}
+
+/* ── filtros ────────────────────────────────────────────────────────────── */
+
+.filtros { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 4px; }
+.filtros label { display: block; font-size: 12px; color: var(--tinta-3); margin-bottom: 4px; }
+.filtros select, .filtros input {
+  font: inherit; font-size: 14px; padding: 7px 10px;
+  border: 1px solid var(--linha-forte); border-radius: 6px; background: var(--superficie);
+}
+
+/* ── indicadores (stat tiles) ───────────────────────────────────────────── */
+
+.indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.indicador {
+  background: var(--superficie); border: 1px solid var(--linha);
+  border-radius: var(--raio); padding: 14px 16px; box-shadow: var(--sombra);
+}
+.indicador .rotulo { font-size: 12px; color: var(--tinta-3); }
+.indicador .valor { font-size: 30px; font-weight: 600; margin-top: 2px; letter-spacing: -.02em; }
+.indicador .nota { font-size: 12px; color: var(--tinta-3); margin-top: 2px; }
+.indicador .valor.positivo { color: var(--acerto); }
+.indicador .valor.negativo { color: var(--erro); }
+
+/* ── tabelas ────────────────────────────────────────────────────────────── */
+
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--linha); }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--tinta-3); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tbody tr:hover { background: #fafbfc; }
+td.subiu { color: var(--acerto); font-weight: 600; }
+td.caiu  { color: var(--erro);   font-weight: 600; }
+
+/* ── grade de acertos ───────────────────────────────────────────────────── */
+/* A cor indica o estado; o glifo é o canal que sobrevive ao daltonismo,
+   à impressão em preto e branco e ao modo de alto contraste. */
+
+.grade { font-size: 13px; }
+.grade th.q { text-align: center; font-size: 11px; padding: 4px 2px; }
+.grade td.cel { padding: 2px; text-align: center; }
+.grade .marca-q {
+  display: grid; place-items: center;
+  width: 26px; height: 24px; margin: 0 auto;
+  border-radius: 4px; font-size: 12px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.marca-q.certo    { background: var(--acerto);       color: #fff; }
+.marca-q.errado   { background: var(--erro-fraco);   color: var(--erro); }
+.marca-q.total    { background: var(--acerto);       color: #fff; }
+.marca-q.parcial  { background: var(--parcial);      color: #123f2a; }
+.marca-q.fraco    { background: var(--atencao-fraco);color: #8c5108; }
+.marca-q.zero     { background: var(--erro-fraco);   color: var(--erro); }
+.marca-q.vazio    { background: var(--fundo);        color: var(--tinta-3); }
+
+tr.abaixo-do-corte td.aluno { box-shadow: inset 3px 0 0 var(--erro); }
+tr.ausente td { color: var(--tinta-3); font-style: italic; }
+
+/* ── barras ─────────────────────────────────────────────────────────────── */
+/* Uma cor por gráfico: o comprimento já codifica a magnitude. */
+
+.barra-trilho {
+  position: relative; height: 10px; border-radius: 5px;
+  background: var(--linha); overflow: hidden; min-width: 90px;
+}
+.barra-preenche {
+  position: absolute; inset: 0 auto 0 0;
+  background: var(--navy-medio);
+  border-radius: 0 4px 4px 0;   /* ponta arredondada, quadrada na linha de base */
+}
+.barra-preenche.critica { background: var(--erro); }
+.barra-preenche.atencao { background: var(--atencao); }
+
+/* distribuição das correções: 2px de superfície separando os segmentos */
+.empilhada { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; background: var(--superficie); }
+.empilhada span { display: block; }
+.empilhada .s-total   { background: var(--acerto); }
+.empilhada .s-alta    { background: var(--parcial); }
+.empilhada .s-baixa   { background: var(--atencao); }
+.empilhada .s-zero    { background: var(--erro); }
+
+/* ── questões ───────────────────────────────────────────────────────────── */
+
+.questoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.questao { border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px 14px; background: var(--superficie); }
+.questao .linha1 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.questao .numero { font-weight: 600; }
+.questao .pct { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+.questao .detalhe { font-size: 12px; color: var(--tinta-3); margin-top: 6px; }
+
+/* ── etiquetas ──────────────────────────────────────────────────────────── */
+
+.etiqueta {
+  display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px;
+  border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+}
+.etiqueta.facil   { background: var(--acerto-fraco); color: #17613d; }
+.etiqueta.medio   { background: #e8ebf0;             color: var(--navy); }
+.etiqueta.dificil { background: #e0e4ea;             color: var(--navy); }
+.etiqueta.frente  { background: #eef1f6;             color: var(--navy-medio); }
+.etiqueta.critica { background: var(--erro-fraco);   color: var(--erro); }
+.etiqueta.atencao { background: var(--atencao-fraco);color: #8c5108; }
+.etiqueta.aprovado{ background: var(--acerto-fraco); color: #17613d; }
+.etiqueta.cortado { background: var(--erro-fraco);   color: var(--erro); }
+
+/* ── legenda ────────────────────────────────────────────────────────────── */
+
+.legenda-cores { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--tinta-2); margin-top: 10px; }
+.legenda-cores span { display: inline-flex; align-items: center; gap: 6px; }
+.amostra { width: 20px; height: 16px; border-radius: 3px; display: grid; place-items: center; font-size: 10px; font-weight: 700; }
+
+/* ── login ──────────────────────────────────────────────────────────────── */
+
+.tela-login { min-height: 100vh; display: grid; place-items: center; background: var(--navy); padding: 24px; }
+.caixa-login { background: #fff; border-radius: 12px; padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.caixa-login h1 { font-size: 19px; }
+.caixa-login .sub { color: var(--tinta-3); font-size: 13px; margin: 6px 0 22px; }
+.campo { margin-bottom: 14px; }
+.campo label { display: block; font-size: 13px; margin-bottom: 5px; color: var(--tinta-2); }
+.campo input { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--linha-forte); border-radius: 6px; }
+.campo input:focus { outline: 2px solid var(--navy-medio); outline-offset: 1px; border-color: var(--navy-medio); }
+
+.botao {
+  font: inherit; font-weight: 600; font-size: 15px; width: 100%;
+  padding: 11px; border: 0; border-radius: 6px; cursor: pointer;
+  background: var(--navy); color: #fff;
+}
+.botao:hover { background: var(--navy-medio); }
+
+.aviso { padding: 10px 12px; border-radius: 6px; font-size: 14px; margin-bottom: 14px; }
+.aviso.erro { background: var(--erro-fraco); color: var(--erro); }
+.aviso.info { background: #eef1f6; color: var(--navy); }
+
+.vazio { color: var(--tinta-3); padding: 28px; text-align: center; }
+
+/* ── impressão ──────────────────────────────────────────────────────────── */
+
+@media print {
+  .topo nav, .filtros { display: none; }
+  body { background: #fff; }
+  .cartao, .indicador { box-shadow: none; }
+}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block titulo %}Painel{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <h1>Painel</h1>
+  <p class="sub">
+    {% if escopo.admin %}Coordenação · visão de todas as matérias
+    {% else %}{{ escopo.materias() | map(attribute='value') | join(', ') }}{% endif %}
+  </p>
+</div>
+
+{% if not linhas %}
+  <div class="cartao vazio">Nenhuma prova importada ainda.</div>
+{% else %}
+<div class="secao">
+  <h2>Média da turma por ciclo</h2>
+  <p class="legenda">Só os presentes entram na média · corte da disciplina: {{ fmt(corte) }}</p>
+</div>
+
+<div class="cartao" style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th>Prova</th>
+        {% for c in ciclos %}<th class="num">Ciclo {{ c }}</th>{% endfor %}
+        <th class="num">Variação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for linha in linhas %}
+      <tr>
+        <td>
+          <a href="/provas?ciclo={{ ciclos[-1] }}&fase={{ linha.fase }}&materia={{ linha.materia }}">
+            {{ linha.materia }}</a>
+          <span style="color:var(--tinta-3); font-size:12px"> · {{ linha.fase }}</span>
+        </td>
+        {% for media in linha.medias %}
+        <td class="num">
+          {% if media is none %}<span style="color:var(--tinta-3)">—</span>
+          {% else %}{{ fmt(media) }}{% endif %}
+        </td>
+        {% endfor %}
+        <td class="num {% if linha.variacao and linha.variacao > 0 %}subiu{% elif linha.variacao and linha.variacao < 0 %}caiu{% endif %}">{{ fmt_sinal(linha.variacao) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
