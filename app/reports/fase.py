@@ -13,7 +13,9 @@ from app.charts import svg as charts
 from app.charts.svg import Barra, Segmento
 from app.models import Prova, Questao
 from app.provas import servico
-from app.reports.base import CORPO, FORTE, LARGURA_UTIL, MARGEM, Documento, Rodape
+from app.reports.base import (
+    CORPO, FORTE, LARGURA_UTIL, MARGEM, Documento, Rodape, encurtar_nome,
+)
 
 LINHAS_POR_METADE = 20   # a divisao em duas metades e o que segura a tabela numa pagina
 LARGURA_NOME = 118.0
@@ -38,39 +40,6 @@ def _escala(imagem, largura_disponivel: float, altura_disponivel: float) -> floa
         1.0,
     )
 
-
-def encurtar_nome(nome: str, limite: float = LARGURA_NOME - 6, tamanho: float = 7.4) -> str:
-    """Abrevia os nomes do meio em vez de cortar no meio de uma palavra.
-
-    "Maria Eduarda do Nascimento Ziebell" vira "Maria E. do N. Ziebell", que ainda
-    identifica a pessoa — "Maria Eduarda Do Nascimen" nao identifica nem cabe.
-    """
-    from reportlab.pdfbase.pdfmetrics import stringWidth
-
-    from app.reports.base import CORPO
-
-    partes = nome.title().split()
-    if not partes:
-        return nome
-    minusculas = {"Da", "De", "Do", "Das", "Dos", "E"}
-    partes = [p if p not in minusculas else p.lower() for p in partes]
-
-    def largura(texto: str) -> float:
-        return stringWidth(texto, CORPO, tamanho)
-
-    atual = " ".join(partes)
-    meio = 1
-    while largura(atual) > limite and meio < len(partes) - 1:
-        parte = partes[meio]
-        if parte.lower() not in {p.lower() for p in minusculas}:
-            partes[meio] = parte[0] + "."
-        meio += 1
-        atual = " ".join(partes)
-
-    while largura(atual) > limite and len(partes) > 2:
-        del partes[1]
-        atual = " ".join(partes)
-    return atual
 
 NIVEL_CORES = {
     "FÁCIL": ("#e1f1e7", "#17613d"),
@@ -222,7 +191,7 @@ def _grade(doc: Documento, r: Relatorio, y: float) -> float:
     linhas_alunos = [
         [
             str(indice + 1),
-            encurtar_nome(aluno.nome),
+            encurtar_nome(aluno.nome, LARGURA_NOME - 6),
             *[_celula(aluno, x, prova, r.objetiva) for x in q.questoes],
             R.formatar(aluno.nota),
         ]
@@ -260,7 +229,7 @@ def _grade(doc: Documento, r: Relatorio, y: float) -> float:
         fim = doc.texto(
             fim + 5,
             "Ausentes, não realizaram a prova e não entram em nenhuma estatística: "
-            + ", ".join(encurtar_nome(n, limite=9999) for n in q.ausentes)
+            + ", ".join(n.title() for n in q.ausentes)
             + ".",
             tamanho=6.8, entrelinha=8.4,
         )

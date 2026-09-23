@@ -174,8 +174,16 @@ def test_enunciado_ilegivel_perde_o_texto_de_apoio(s):
 @requer_planilha
 def test_nomes_longos_sao_abreviados_e_nao_cortados(s):
     """"Maria Eduarda Do Nascimen" não identifica ninguém nem cabe."""
-    from app.reports.fase import encurtar_nome
+    from app.reports.base import encurtar_nome
+    from app.reports.fase import LARGURA_NOME
 
-    assert encurtar_nome("MARIA EDUARDA DO NASCIMENTO ZIEBELL").endswith("Ziebell")
-    assert encurtar_nome("MURILO COSER ROCHA") == "Murilo Coser Rocha"
-    assert "do" in encurtar_nome("GUILHERME GOMES BARAUNA DO COUTO")
+    estreito = LARGURA_NOME - 6
+    assert encurtar_nome("MARIA EDUARDA DO NASCIMENTO ZIEBELL", estreito).endswith("Ziebell")
+    assert encurtar_nome("MURILO COSER ROCHA", estreito) == "Murilo Coser Rocha"
+    # as partículas ficam em minúscula e não são abreviadas
+    assert "do" in encurtar_nome("GUILHERME GOMES BARAUNA DO COUTO", estreito)
+    # com folga, o nome sai inteiro
+    assert (
+        encurtar_nome("JOAO VITOR MATTEOLI DELFINO SANTANA CHAVES", 9999)
+        == "Joao Vitor Matteoli Delfino Santana Chaves"
+    )

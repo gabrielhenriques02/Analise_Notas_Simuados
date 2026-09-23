@@ -662,3 +662,67 @@ def baixar_relatorio(
     if not caminho.exists():
         raise NaoEncontrado("O arquivo não está mais disponível. Gere o relatório de novo.")
     return FileResponse(caminho, media_type="application/pdf", filename=registro.arquivo)
+
+
+# Fica sob /relatorios e nao sob /faltas: "POST /faltas/{falta_id}" ja existe e
+# captaria "relatorio" como id, devolvendo 422 em vez de gerar o PDF.
+@router.post("/relatorios/faltas", include_in_schema=False)
+async def gerar_relatorio_de_faltas(
+    request: Request,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    s: Session = Depends(auth.obter_sessao),
+):
+    import json
+    from datetime import datetime
+
+    import pymupdf
+
+    from app.models import RelatorioGerado
+    from app.reports import faltas as relatorio_faltas
+
+    formulario = await request.form()
+    fase = Fase(formulario.get("fase", Fase.SEGUNDA.value))
+    materia = Materia(formulario.get("materia", Materia.QUIMICA.value))
+    textos = {
+        chave[6:]: valor.strip()
+        for chave, valor in formulario.items()
+        if chave.startswith("texto_") and isinstance(valor, str) and valor.strip()
+    }
+
+    montado = relatorio_faltas.montar(s, materia, fase, textos)
+    if not montado.panorama.ciclos:
+        return _voltar("/faltas?aviso=Não há provas desta matéria para relatar.")
+    dados = relatorio_faltas.gerar(montado)
+
+    import unicodedata
+
+    def sem_acento(texto: str) -> str:
+        return "".join(
+            c for c in unicodedata.normalize("NFKD", texto) if not unicodedata.combining(c)
+        )
+
+    fase_curta = "1a Fase" if fase is Fase.PRIMEIRA else "2a Fase"
+    nome = f"Relatorio - Faltas nos Simulados {sem_acento(materia.value).title()} {fase_curta}.pdf"
+    config.dir_saida.mkdir(parents=True, exist_ok=True)
+    (config.dir_saida / nome).write_bytes(dados)
+
+    with pymupdf.open(stream=dados, filetype="pdf") as doc:
+        paginas = doc.page_count
+
+    registro = s.scalar(
+        select(RelatorioGerado).where(
+            RelatorioGerado.tipo == "faltas", RelatorioGerado.titulo == nome.removesuffix(".pdf")
+        )
+    )
+    if registro is None:
+        registro = RelatorioGerado(tipo="faltas")
+        s.add(registro)
+    registro.titulo = nome.removesuffix(".pdf")
+    registro.arquivo = nome
+    registro.textos = json.dumps(textos, ensure_ascii=False)
+    registro.paginas = paginas
+    registro.tamanho = len(dados)
+    registro.usuario_id = usuario.id
+    registro.gerado_em = datetime.now()
+    s.flush()
+    return _voltar(f"/relatorios/{registro.id}/baixar")

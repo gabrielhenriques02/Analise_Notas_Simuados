@@ -449,3 +449,34 @@ def test_professor_nao_gera_relatorio_de_outra_materia():
     c = logar(PROF)   # professor de Química
     assert c.post("/relatorios/gerar", data={"prova_id": prova_id}).status_code == 403
     c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_gerar_relatorio_de_faltas_pela_tela():
+    """Regressão de rota: POST /faltas/{falta_id} capturava "relatorio" como id e
+    devolvia 422 — por isso a geração vive sob /relatorios/faltas."""
+    import pymupdf
+
+    c = logar(ADMIN)
+    resposta = c.post(
+        "/relatorios/faltas",
+        data={"fase": "2ª FASE", "materia": "QUÍMICA"},
+        follow_redirects=False,
+    )
+    assert resposta.status_code == 303
+
+    baixado = c.get(resposta.headers["location"])
+    assert baixado.status_code == 200
+    assert baixado.headers["content-type"] == "application/pdf"
+    with pymupdf.open(stream=baixado.content, filetype="pdf") as doc:
+        assert "USO INTERNO" in doc[0].get_text()
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_professor_nao_gera_relatorio_de_faltas():
+    c = logar(PROF)
+    assert c.post(
+        "/relatorios/faltas", data={"fase": "2ª FASE", "materia": "QUÍMICA"}
+    ).status_code == 403
+    c.__exit__(None, None, None)

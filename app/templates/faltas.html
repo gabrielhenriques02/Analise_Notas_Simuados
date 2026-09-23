@@ -51,6 +51,28 @@
   </div>
 </form>
 
+<div class="secao"><h2>Relatório de faltas</h2></div>
+<form class="cartao" method="post" action="/relatorios/faltas">
+  <input type="hidden" name="fase" value="{{ fase_atual }}">
+  <input type="hidden" name="materia" value="{{ materia_atual }}">
+  <p class="legenda" style="margin-top:0">
+    Gera o PDF de {{ materia_atual|lower }} · {{ fase_atual }} para a direção.
+    {% if pendentes %}<strong>Atenção:</strong> {{ pendentes }} ausência(s) ainda aguardam
+    revisão, e o PDF sai marcado como provisório.{% endif %}
+  </p>
+  <div class="textos" style="margin-bottom:12px">
+    <div>
+      <label for="timp"><strong>POR QUE CADA FALTA PESA TANTO</strong></label>
+      <textarea id="timp" name="texto_IMPACTO" rows="4" placeholder="Deixe em branco para usar o texto padrão."></textarea>
+    </div>
+    <div>
+      <label for="tenc"><strong>ENCAMINHAMENTOS PROPOSTOS</strong></label>
+      <textarea id="tenc" name="texto_ENCAMINHAMENTOS" rows="4" placeholder="Um encaminhamento por frase, separados por ponto."></textarea>
+    </div>
+  </div>
+  <button class="botao" style="width:auto; padding:9px 20px" type="submit">Gerar PDF e baixar</button>
+</form>
+
 {% if not grupos %}
   <div class="cartao vazio">Nenhuma falta para revisar aqui.</div>
 {% endif %}

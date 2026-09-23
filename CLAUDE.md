@@ -85,6 +85,21 @@ Nota por matéria = `acertos × 10/12`. Média geral = `média(MAT, FÍS, QUÍ)`
   na grade (verde sólido vs `#f8e5e5`) dá 33,6, e ainda assim as células levam ✓/✗.
   Nunca remover o glifo.
 
+## Faltas (app/analytics/faltas.py, app/reports/faltas.py)
+
+- Uma ausência **conta enquanto não for explicitamente descartada** (`confirmada is
+  not False`) — mesma regra que `metrics.desempenho` usa para presença, para os dois
+  números nunca discordarem.
+- Enquanto houver ausência pendente de revisão, o PDF sai **marcado como provisório**.
+  A inferência acha 48 ausências de Química; o relatório de referência registra 44.
+- O relatório de faltas é o **template B**: tipografia maior, separador `|`, número de
+  página no cabeçalho, `USO INTERNO — DIREÇÃO`.
+- **Rotas:** a geração vive em `POST /relatorios/faltas`, não em `/faltas/relatorio` —
+  `POST /faltas/{falta_id}` é registrada antes e captura `"relatorio"` como id.
+- **Eixo dos gráficos em números redondos** (`_escala_do_eixo`): o passo vem primeiro e
+  o teto sai dele, senão aparecem marcas como 47% ou um teto de 80% para um máximo de
+  40%, que espreme as colunas à metade.
+
 ## Privacidade — o repositório é PÚBLICO
 
 Nenhum dado de aluno vai para o git. Nunca commitar `.xlsx`, `.pdf`, `.db` nem nada de

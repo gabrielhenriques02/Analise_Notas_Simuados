@@ -50,6 +50,40 @@ def cor(valor: str):
     return HexColor(valor)
 
 
+PARTICULAS = {"da", "de", "do", "das", "dos", "e"}
+
+
+def encurtar_nome(nome: str, limite: float, tamanho: float = 7.4) -> str:
+    """Abrevia os nomes do meio em vez de cortar no meio de uma palavra.
+
+    "Maria Eduarda do Nascimento Ziebell" vira "Maria E. do N. Ziebell", que ainda
+    identifica a pessoa — "Maria Eduarda Do Nascimen" nao identifica nem cabe.
+    """
+    registrar_fontes()
+    partes = [
+        p.lower() if p.lower() in PARTICULAS else p
+        for p in nome.title().split()
+    ]
+    if not partes:
+        return nome
+
+    def largura(texto: str) -> float:
+        return pdfmetrics.stringWidth(texto, CORPO, tamanho)
+
+    atual = " ".join(partes)
+    meio = 1
+    while largura(atual) > limite and meio < len(partes) - 1:
+        if partes[meio].lower() not in PARTICULAS:
+            partes[meio] = partes[meio][0] + "."
+        meio += 1
+        atual = " ".join(partes)
+
+    while largura(atual) > limite and len(partes) > 2:
+        del partes[1]
+        atual = " ".join(partes)
+    return atual
+
+
 @dataclass
 class Rodape:
     esquerda: str

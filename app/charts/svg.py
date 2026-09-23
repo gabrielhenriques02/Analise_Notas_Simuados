@@ -174,3 +174,122 @@ def barra_simples(valor: float, *, largura: int = 120, cor: str = AZUL) -> str:
         )
         + "</svg>"
     )
+
+
+def _escala_do_eixo(maximo: float, marcas_alvo: int = 5) -> tuple[float, float]:
+    """Devolve (teto, passo) em numeros redondos, com a menor folga possivel.
+
+    Uma marca de 47% nao ajuda ninguem a ler, e um teto de 80% para um maximo de
+    40% espreme as colunas a metade da altura. Entre os passos redondos, vence o
+    que der o teto mais baixo com um numero confortavel de marcas.
+    """
+    import math
+
+    if maximo <= 0:
+        return 1.0, 1.0
+
+    alvo = maximo * 1.08
+    potencia = 10 ** math.floor(math.log10(alvo))
+    candidatos = []
+    for escala in (potencia / 10, potencia, potencia * 10):
+        for multiplo in (1, 2, 2.5, 5):
+            passo = multiplo * escala
+            if passo <= 0:
+                continue
+            teto = math.ceil(alvo / passo) * passo
+            marcas = round(teto / passo) + 1
+            if marcas_alvo - 1 <= marcas <= marcas_alvo + 2:
+                candidatos.append((teto, marcas, passo))
+    if not candidatos:
+        return float(alvo), float(alvo / max(1, marcas_alvo - 1))
+    teto, _, passo = min(candidatos, key=lambda c: (c[0], c[1]))
+    return float(teto), float(passo)
+
+
+@dataclass(frozen=True)
+class Coluna:
+    rotulo: str
+    valor: float
+    acima: str = ""       # rotulo desenhado sobre a coluna
+    abaixo: str = ""      # segunda linha sob o eixo
+    cor: str = AZUL
+
+
+def colunas_verticais(
+    itens: list[Coluna],
+    *,
+    largura: int = 430,
+    altura: int = 170,
+    maximo: float | None = None,
+    sufixo: str = "%",
+    marcas: int = 5,
+) -> str:
+    """Colunas com eixo y discreto e o valor escrito sobre cada uma."""
+    if not itens:
+        return ""
+
+    topo, base = 14, altura - 32
+    esquerda = 34
+    if maximo:
+        teto, passo_eixo = float(maximo), float(maximo) / max(1, marcas - 1)
+    else:
+        teto, passo_eixo = _escala_do_eixo(max(i.valor for i in itens), marcas)
+    marcas = int(round(teto / passo_eixo)) + 1
+    faixa = (largura - esquerda - 8) / len(itens)
+    grossura = min(30.0, faixa * 0.5)
+
+    def y_de(valor: float) -> float:
+        return base - (valor / teto) * (base - topo)
+
+    fonte = 'font-family="DejaVu Sans, Inter, Helvetica, sans-serif"'
+    partes = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{largura}" height="{altura}" '
+        f'viewBox="0 0 {largura} {altura}" role="img">',
+        f'<rect width="{largura}" height="{altura}" fill="{SUPERFICIE}"/>',
+    ]
+
+    for indice in range(marcas):
+        valor = passo_eixo * indice
+        y = y_de(valor)
+        partes.append(
+            f'<line x1="{esquerda}" y1="{y:.1f}" x2="{largura - 4}" y2="{y:.1f}" '
+            f'stroke="{TRILHO}" stroke-width="0.8"/>'
+        )
+        marca = f"{valor:.0f}".replace(".", ",") + sufixo
+        partes.append(
+            f'<text x="{esquerda - 5}" y="{y + 3:.1f}" text-anchor="end" font-size="7.5" '
+            f'fill="{TINTA_3}" {fonte}>{_esc(marca)}</text>'
+        )
+
+    for indice, item in enumerate(itens):
+        centro = esquerda + faixa * (indice + 0.5)
+        x = centro - grossura / 2
+        y = y_de(item.valor)
+        alto = max(0.0, base - y)
+        if alto > 0.5:
+            partes.append(
+                f'<rect x="{x:.1f}" y="{y:.1f}" width="{grossura:.1f}" height="{alto:.1f}" '
+                f'rx="{min(RAIO, grossura / 2):.1f}" fill="{item.cor}">'
+                f"<title>{_esc(item.rotulo)}: {_esc(item.acima or item.valor)}</title></rect>"
+            )
+        if item.acima:
+            partes.append(
+                f'<text x="{centro:.1f}" y="{y - 4:.1f}" text-anchor="middle" font-size="8" '
+                f'fill="{TINTA}" {fonte}>{_esc(item.acima)}</text>'
+            )
+        partes.append(
+            f'<text x="{centro:.1f}" y="{base + 12:.1f}" text-anchor="middle" font-size="7.5" '
+            f'fill="{TINTA_2}" {fonte}>{_esc(item.rotulo)}</text>'
+        )
+        if item.abaixo:
+            partes.append(
+                f'<text x="{centro:.1f}" y="{base + 22:.1f}" text-anchor="middle" font-size="7" '
+                f'fill="{TINTA_3}" {fonte}>{_esc(item.abaixo)}</text>'
+            )
+
+    partes.append(
+        f'<line x1="{esquerda}" y1="{base:.1f}" x2="{largura - 4}" y2="{base:.1f}" '
+        f'stroke="{TINTA_3}" stroke-width="0.9"/>'
+    )
+    partes.append("</svg>")
+    return "".join(partes)
