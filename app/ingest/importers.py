@@ -39,6 +39,13 @@ FORMATO_PROVAS = {
 # materia, mas nao na media (ver CLAUDE.md).
 MATERIAS_MEDIA_GERAL = ("MATEMÁTICA", "FÍSICA", "QUÍMICA")
 
+# So na 1ª fase: com 36 questoes objetivas, acertar menos que isso fica abaixo do
+# que o acaso daria, entao a prova provavelmente nao foi feita. O ciclo 2 do Augusto
+# Fabrete soma 0,83 — uma questao — e o relatorio de referencia o trata como
+# ausencia. Na 2ª fase o criterio nao vale: nota 0,9 quer dizer que o aluno escreveu
+# algo e ganhou parcial, e aplicar o mesmo limiar la levantava 121 suspeitas falsas.
+LIMIAR_QUASE_ZERADA = 1.0
+
 
 @dataclass
 class ResumoImportacao:
@@ -335,21 +342,33 @@ def _inferir_faltas(s: Session) -> int:
     for r in resultados:
         prova = provas[r.prova_id]
         if prova.fase is Fase.PRIMEIRA:
-            ausente = soma_primeira.get((r.aluno_id, prova.ciclo), 0.0) <= 0
+            soma = soma_primeira.get((r.aluno_id, prova.ciclo), 0.0)
         else:
-            ausente = (r.nota or 0.0) <= 0
+            soma = r.nota or 0.0
 
-        r.presente = not ausente
-        if not ausente:
+        if soma <= 0:
+            motivo = "prova_zerada"
+        elif prova.fase is Fase.PRIMEIRA and soma < LIMIAR_QUASE_ZERADA:
+            motivo = "quase_zerada"
+        else:
+            motivo = None
+
+        # So a prova zerada tira o aluno da estatistica por conta propria; a quase
+        # zerada e apenas uma suspeita levada a coordenacao.
+        r.presente = motivo != "prova_zerada"
+        if motivo is None:
             continue
         inferidas += 1
-        if (r.aluno_id, r.prova_id) not in existentes:
+        existente = existentes.get((r.aluno_id, r.prova_id))
+        if existente is None:
             s.add(
                 Falta(
                     aluno_id=r.aluno_id,
                     prova_id=r.prova_id,
-                    motivo_inferencia="prova_zerada",
+                    motivo_inferencia=motivo,
                     confirmada=None,  # aguardando a coordenacao
                 )
             )
+        else:
+            existente.motivo_inferencia = motivo
     return inferidas

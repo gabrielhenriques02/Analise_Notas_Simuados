@@ -63,6 +63,9 @@ class Config:
     dir_provas_origem: Path = field(
         default_factory=lambda: _caminho("PROVAS_ORIGEM_DIR", "exemplos_pdf_provas")
     )
+    dir_poliedro: Path = field(
+        default_factory=lambda: _caminho("POLIEDRO_DIR", "exemplos_resultados_poliedro")
+    )
 
     # Regras de negocio (ver CLAUDE.md)
     corte_materia: float = field(default_factory=lambda: _decimal("CORTE_MATERIA", 4.0))

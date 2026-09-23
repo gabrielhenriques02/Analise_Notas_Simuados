@@ -39,9 +39,10 @@ RAIO = 4                 # ponta arredondada do dado
 @dataclass(frozen=True)
 class Barra:
     rotulo: str
-    valor: float          # 0 a 100
+    valor: float              # 0 a 100, define o comprimento
     detalhe: str = ""
     cor: str = AZUL
+    texto: str = ""           # o que aparece a direita; vazio = o proprio percentual
 
 
 @dataclass(frozen=True)
@@ -104,9 +105,11 @@ def barras_horizontais(
             f'font-family="DejaVu Sans, Inter, Helvetica, sans-serif">{_esc(item.rotulo)}</text>'
         )
         if item.detalhe:
-            deslocamento = len(item.rotulo) * 5.2 + 6
+            # alinhado ao fim da faixa do rotulo: calcular por numero de caracteres
+            # fazia o detalhe entrar por baixo da barra em rotulos curtos
             partes.append(
-                f'<text x="{deslocamento:.0f}" y="{meio}" font-size="8" fill="{TINTA_3}" '
+                f'<text x="{trilho_x - 5}" y="{meio}" text-anchor="end" font-size="7.5" '
+                f'fill="{TINTA_3}" '
                 f'font-family="DejaVu Sans, Inter, Helvetica, sans-serif">{_esc(item.detalhe)}</text>'
             )
         partes.append(
@@ -120,7 +123,8 @@ def barras_horizontais(
             )
         partes.append(
             f'<text x="{largura}" y="{meio}" text-anchor="end" font-size="9" fill="{TINTA}" '
-            f'font-family="DejaVu Sans, Inter, Helvetica, sans-serif">{_pct(item.valor)}</text>'
+            f'font-family="DejaVu Sans, Inter, Helvetica, sans-serif">'
+            f'{_esc(item.texto) if item.texto else _pct(item.valor)}</text>'
         )
 
     partes.append("</svg>")
@@ -293,3 +297,157 @@ def colunas_verticais(
     )
     partes.append("</svg>")
     return "".join(partes)
+
+
+@dataclass(frozen=True)
+class Serie:
+    rotulo: str
+    valores: list[float | None]      # None = ponto ausente, a linha se interrompe
+    cor: str = AZUL
+    rotular_pontos: bool = False
+
+
+@dataclass(frozen=True)
+class Referencia:
+    valor: float
+    rotulo: str = ""
+    cor: str = TINTA_3
+
+
+def linhas(
+    series: list[Serie],
+    categorias: list[str],
+    *,
+    largura: int = 430,
+    altura: int = 190,
+    minimo: float = 0.0,
+    maximo: float | None = None,
+    invertido: bool = False,
+    sufixo: str = "",
+    referencias: list[Referencia] | None = None,
+    formatar=None,
+    rotulos_a_direita: bool = False,
+) -> str:
+    """Linhas sobre categorias. `invertido` serve para ranking, onde 1º fica no alto."""
+    if not series or not categorias:
+        return ""
+
+    formatar = formatar or (lambda v: f"{v:.2f}".replace(".", ",") + sufixo)
+    fonte = 'font-family="DejaVu Sans, Inter, Helvetica, sans-serif"'
+    reserva = 96 if rotulos_a_direita else 8
+    esquerda, topo = 38, 12
+    base = altura - 26
+    direita = largura - reserva
+
+    valores = [v for s in series for v in s.valores if v is not None]
+    if not valores:
+        return ""
+    teto = maximo if maximo is not None else max(valores)
+    piso = minimo
+    if teto <= piso:
+        teto = piso + 1
+    passo_eixo = (teto - piso) / 4
+
+    def y_de(valor: float) -> float:
+        proporcao = (valor - piso) / (teto - piso)
+        if invertido:
+            return topo + proporcao * (base - topo)
+        return base - proporcao * (base - topo)
+
+    def x_de(indice: int) -> float:
+        if len(categorias) == 1:
+            return (esquerda + direita) / 2
+        return esquerda + indice * (direita - esquerda) / (len(categorias) - 1)
+
+    partes = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{largura}" height="{altura}" '
+        f'viewBox="0 0 {largura} {altura}" role="img">',
+        f'<rect width="{largura}" height="{altura}" fill="{SUPERFICIE}"/>',
+    ]
+
+    for indice in range(5):
+        valor = piso + passo_eixo * indice
+        y = y_de(valor)
+        partes.append(
+            f'<line x1="{esquerda}" y1="{y:.1f}" x2="{direita}" y2="{y:.1f}" '
+            f'stroke="{TRILHO}" stroke-width="0.8"/>'
+        )
+        partes.append(
+            f'<text x="{esquerda - 5}" y="{y + 3:.1f}" text-anchor="end" font-size="7" '
+            f'fill="{TINTA_3}" {fonte}>{_esc(formatar(valor))}</text>'
+        )
+
+    for referencia in referencias or []:
+        y = y_de(referencia.valor)
+        partes.append(
+            f'<line x1="{esquerda}" y1="{y:.1f}" x2="{direita}" y2="{y:.1f}" '
+            f'stroke="{referencia.cor}" stroke-width="1" stroke-dasharray="4 3"/>'
+        )
+        if referencia.rotulo:
+            partes.append(
+                f'<text x="{direita}" y="{y - 3:.1f}" text-anchor="end" font-size="6.8" '
+                f'fill="{referencia.cor}" {fonte}>{_esc(referencia.rotulo)}</text>'
+            )
+
+    for indice, categoria in enumerate(categorias):
+        partes.append(
+            f'<text x="{x_de(indice):.1f}" y="{base + 13:.1f}" text-anchor="middle" '
+            f'font-size="7" fill="{TINTA_2}" {fonte}>{_esc(categoria)}</text>'
+        )
+
+    for serie in series:
+        trecho: list[tuple[float, float]] = []
+        for indice, valor in enumerate(serie.valores):
+            if valor is None:
+                if len(trecho) > 1:
+                    partes.append(_traco(trecho, serie.cor))
+                trecho = []
+                continue
+            trecho.append((x_de(indice), y_de(valor)))
+        if len(trecho) > 1:
+            partes.append(_traco(trecho, serie.cor))
+
+        for indice, valor in enumerate(serie.valores):
+            if valor is None:
+                continue
+            x, y = x_de(indice), y_de(valor)
+            partes.append(
+                f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="{serie.cor}" '
+                f'stroke="{SUPERFICIE}" stroke-width="2"><title>'
+                f"{_esc(serie.rotulo)} · {_esc(categorias[indice])}: {_esc(formatar(valor))}"
+                "</title></circle>"
+            )
+            if serie.rotular_pontos:
+                partes.append(
+                    f'<text x="{x:.1f}" y="{y - 7:.1f}" text-anchor="middle" font-size="6.8" '
+                    f'fill="{TINTA}" {fonte}>{_esc(formatar(valor))}</text>'
+                )
+
+        if rotulos_a_direita:
+            ultimo = next(
+                (
+                    (i, v) for i, v in reversed(list(enumerate(serie.valores)))
+                    if v is not None
+                ),
+                None,
+            )
+            if ultimo:
+                indice, valor = ultimo
+                partes.append(
+                    f'<text x="{x_de(indice) + 7:.1f}" y="{y_de(valor) + 3:.1f}" font-size="7" '
+                    f'fill="{TINTA_2}" {fonte}>{_esc(serie.rotulo)}</text>'
+                )
+
+    partes.append("</svg>")
+    return "".join(partes)
+
+
+def _traco(pontos: list[tuple[float, float]], cor: str) -> str:
+    caminho = " ".join(
+        ("M" if indice == 0 else "L") + f"{x:.1f} {y:.1f}"
+        for indice, (x, y) in enumerate(pontos)
+    )
+    return (
+        f'<path d="{caminho}" fill="none" stroke="{cor}" stroke-width="2" '
+        'stroke-linejoin="round" stroke-linecap="round"/>'
+    )

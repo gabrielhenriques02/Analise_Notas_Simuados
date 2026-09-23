@@ -48,6 +48,40 @@
   </table>
 </div>
 
+<div class="secao">
+  <h2>Resultados do Sistema Poliedro</h2>
+  <p class="legenda">
+    As planilhas <em>Resultado - 1a Fase - Ciclo N</em> e <em>Resultado Final - Ciclo N</em>.
+    O sistema descobre o ciclo e a fase pelo nome do arquivo e localiza o cabeçalho pelos
+    rótulos, então uma mudança na altura do bloco de título não quebra a leitura.
+  </p>
+</div>
+<div class="cartao">
+  <form method="post" action="/poliedro/importar" enctype="multipart/form-data"
+        style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+    <input type="file" name="planilhas" accept=".xlsx" multiple required>
+    <label style="font-size:12px; color:var(--tinta-3)">
+      ciclo (só se o nome do arquivo não disser):
+      <input type="number" name="ciclo" min="1" max="12" style="width:64px; font:inherit; padding:5px 7px; border:1px solid var(--linha-forte); border-radius:6px">
+    </label>
+    <button class="botao" style="width:auto; padding:7px 16px; font-size:13px">Importar</button>
+  </form>
+  {% if poliedro %}
+  <table style="margin-top:14px">
+    <thead><tr><th>Ciclo</th><th>Fase</th><th class="num">Alunos</th><th class="num">Base do ranking</th><th class="num">Melhor posição</th></tr></thead>
+    <tbody>
+      {% for p in poliedro %}
+      <tr>
+        <td>Ciclo {{ p.ciclo }}</td><td>{{ p.fase }}</td>
+        <td class="num">{{ p.alunos }}</td><td class="num">{{ p.base or '—' }}</td>
+        <td class="num">{{ p.melhor }}º</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
 <p class="legenda" style="margin-top:12px">
   Para a 1ª fase, envie o caderno completo das 48 questões em cada matéria — o sistema
   recorta a faixa certa (Matemática 1–12, Física 13–24, Química 25–36, Inglês 37–48).

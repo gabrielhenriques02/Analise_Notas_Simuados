@@ -480,3 +480,105 @@ def test_professor_nao_gera_relatorio_de_faltas():
         "/relatorios/faltas", data={"fase": "2ª FASE", "materia": "QUÍMICA"}
     ).status_code == 403
     c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_gerar_relatorio_de_potenciais_pela_tela():
+    import pymupdf
+
+    c = logar(ADMIN)
+    resposta = c.post(
+        "/relatorios/potenciais",
+        data={"quantos": "8", "texto_GRUPO": "Química é o gargalo do grupo."},
+        follow_redirects=False,
+    )
+    assert resposta.status_code == 303
+    baixado = c.get(resposta.headers["location"])
+    assert baixado.headers["content-type"] == "application/pdf"
+    with pymupdf.open(stream=baixado.content, filetype="pdf") as doc:
+        assert doc.page_count == 9
+        assert "gargalo do grupo" in doc[0].get_text()
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_gerar_relatorio_unificado_pela_tela():
+    import pymupdf
+
+    c = logar(ADMIN)
+    resposta = c.post("/relatorios/unificado", data={}, follow_redirects=False)
+    assert resposta.status_code == 303
+    baixado = c.get(resposta.headers["location"])
+    with pymupdf.open(stream=baixado.content, filetype="pdf") as doc:
+        assert "PANORAMA POR CICLO" in doc[0].get_text()
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_professor_nao_gera_relatorios_da_turma():
+    """Potenciais e unificado cruzam todas as matérias."""
+    c = logar(PROF)
+    assert c.post("/relatorios/potenciais", data={}).status_code == 403
+    assert c.post("/relatorios/unificado", data={}).status_code == 403
+    c.__exit__(None, None, None)
+
+
+@requer_planilha
+def test_importar_planilha_do_poliedro_pela_tela():
+    from app.config import config
+
+    caminho = config.dir_poliedro / "Resultado - 1a Fase - Ciclo 1.xlsx"
+    if not caminho.exists():
+        import pytest
+
+        pytest.skip("planilha do Poliedro ausente")
+
+    c = logar(ADMIN)
+    resposta = c.post(
+        "/poliedro/importar",
+        files={"planilhas": (caminho.name, caminho.read_bytes(),
+                             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        follow_redirects=False,
+    )
+    assert resposta.status_code == 303
+    assert "classifica" in resposta.headers["location"]
+    c.__exit__(None, None, None)
+
+
+def test_rotas_sem_conflito_de_segmento():
+    """Nenhuma rota literal pode ser engolida por uma irmã parametrizada.
+
+    Regressão dupla: "POST /faltas/relatorio" caía em "/faltas/{falta_id}" e
+    "POST /arquivos/poliedro" caía em "/arquivos/{prova_id}" — as duas devolviam
+    422 tentando ler a palavra como número, em vez de executar a ação.
+    """
+    import re
+
+    from app.main import app
+
+    rotas = [
+        (r.path, metodo)
+        for r in app.routes
+        for metodo in getattr(r, "methods", set()) or set()
+    ]
+    conflitos = []
+    for caminho, metodo in rotas:
+        partes = caminho.strip("/").split("/")
+        for outro, outro_metodo in rotas:
+            if outro == caminho or metodo != outro_metodo:
+                continue
+            pedacos = outro.strip("/").split("/")
+            if len(pedacos) != len(partes):
+                continue
+            if any(
+                re.fullmatch(r"\{[^}]+\}", b) and not re.fullmatch(r"\{[^}]+\}", a)
+                for a, b in zip(partes, pedacos)
+            ) and all(
+                a == b or re.fullmatch(r"\{[^}]+\}", b)
+                for a, b in zip(partes, pedacos)
+            ):
+                # `outro` é a versão parametrizada; ela precisa vir DEPOIS
+                if rotas.index((outro, outro_metodo)) < rotas.index((caminho, metodo)):
+                    conflitos.append(f"{metodo} {caminho} é capturada por {outro}")
+
+    assert not conflitos, "rotas em conflito: " + "; ".join(sorted(set(conflitos)))

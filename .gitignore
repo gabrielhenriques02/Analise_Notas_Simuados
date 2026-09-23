@@ -7,6 +7,7 @@ data/
 planilha_dados/
 exemplos_relatorios/
 exemplos_pdf_provas/
+exemplos_resultados_poliedro/
 
 *.xlsx
 *.xlsm

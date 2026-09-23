@@ -367,6 +367,7 @@ def faltas(
                             "nome": nomes.get(f.aluno_id, "?"),
                             "nota": notas.get(f.aluno_id),
                             "confirmada": f.confirmada,
+                            "motivo": f.motivo_inferencia,
                         }
                         for f in registros
                     ),
@@ -449,9 +450,27 @@ def arquivos(
             }
         )
 
+    from app.models import ClassificacaoPoliedro
+
+    resumo_poliedro = []
+    agrupado: dict[tuple[int, str], list] = {}
+    for registro in s.scalars(select(ClassificacaoPoliedro)):
+        agrupado.setdefault((registro.ciclo, registro.fase.value), []).append(registro)
+    for (ciclo, fase), registros in sorted(agrupado.items()):
+        posicoes = [r.posicao for r in registros if r.posicao]
+        resumo_poliedro.append(
+            {
+                "ciclo": ciclo,
+                "fase": fase,
+                "alunos": len(registros),
+                "base": registros[0].base_ranking,
+                "melhor": min(posicoes) if posicoes else "—",
+            }
+        )
+
     return _render(
         request, "arquivos.html", pagina="arquivos", usuario=usuario,
-        escopo=escopo, aviso=aviso, linhas=linhas,
+        escopo=escopo, aviso=aviso, linhas=linhas, poliedro=resumo_poliedro,
     )
 
 
@@ -563,6 +582,9 @@ def relatorios(
     disponiveis = [
         m.value for m in visiveis if M.obter_prova(s, alvo_ciclo, alvo_fase, m) is not None
     ]
+    from app.models import ClassificacaoPoliedro
+
+    tem_poliedro = s.query(ClassificacaoPoliedro).count() > 0
     gerados = list(
         s.scalars(
             select(RelatorioGerado)
@@ -580,6 +602,7 @@ def relatorios(
         aviso=aviso, prova=prova, montado=montado, gerados=gerados, ciclos=ciclos,
         fases=[f.value for f in Fase], materias=disponiveis,
         ciclo_atual=alvo_ciclo, fase_atual=alvo_fase.value, materia_atual=escolhida,
+        tem_poliedro=tem_poliedro,
     )
 
 
@@ -726,3 +749,127 @@ async def gerar_relatorio_de_faltas(
     registro.gerado_em = datetime.now()
     s.flush()
     return _voltar(f"/relatorios/{registro.id}/baixar")
+
+
+# Caminho proprio, e nao /arquivos/poliedro: "POST /arquivos/{prova_id}" e
+# registrada antes e captaria "poliedro" como id. Ver test_rotas_sem_conflito.
+@router.post("/poliedro/importar", include_in_schema=False)
+async def enviar_poliedro(
+    request: Request,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.ingest import poliedro
+
+    formulario = await request.form()
+    enviados = [a for a in formulario.getlist("planilhas") if getattr(a, "filename", "")]
+    if not enviados:
+        return _voltar("/arquivos?aviso=Escolha ao menos uma planilha do Poliedro.")
+
+    ciclo_informado = formulario.get("ciclo")
+    ciclo = int(ciclo_informado) if ciclo_informado and ciclo_informado.isdigit() else None
+
+    config.dir_uploads.mkdir(parents=True, exist_ok=True)
+    recados, problemas = [], []
+    for enviado in enviados:
+        destino = config.dir_uploads / enviado.filename
+        destino.write_bytes(await enviado.read())
+        try:
+            resumo = poliedro.importar(s, destino, ciclo=ciclo)
+        except Exception as erro:  # arquivo fora do formato esperado
+            problemas.append(f"{enviado.filename}: {erro}")
+            continue
+        if resumo.gravados:
+            recados.append(
+                f"Ciclo {resumo.ciclo} {resumo.fase.value}: {resumo.gravados} classificações"
+            )
+        problemas.extend(resumo.avisos)
+
+    aviso = "  ·  ".join(recados) or "Nada foi importado."
+    if problemas:
+        aviso += "  —  " + "; ".join(problemas[:3])
+    return _voltar(f"/arquivos?aviso={aviso}")
+
+
+def _guardar_relatorio(s: Session, usuario: Usuario, tipo: str, nome: str,
+                       dados: bytes, textos: dict) -> int:
+    import json
+    from datetime import datetime
+
+    import pymupdf
+
+    from app.models import RelatorioGerado
+
+    config.dir_saida.mkdir(parents=True, exist_ok=True)
+    (config.dir_saida / nome).write_bytes(dados)
+    with pymupdf.open(stream=dados, filetype="pdf") as doc:
+        paginas = doc.page_count
+
+    registro = s.scalar(
+        select(RelatorioGerado).where(
+            RelatorioGerado.tipo == tipo,
+            RelatorioGerado.titulo == nome.removesuffix(".pdf"),
+        )
+    )
+    if registro is None:
+        registro = RelatorioGerado(tipo=tipo)
+        s.add(registro)
+    registro.titulo = nome.removesuffix(".pdf")
+    registro.arquivo = nome
+    registro.textos = json.dumps(textos, ensure_ascii=False)
+    registro.paginas = paginas
+    registro.tamanho = len(dados)
+    registro.usuario_id = usuario.id
+    registro.gerado_em = datetime.now()
+    s.flush()
+    return registro.id
+
+
+def _textos_do_formulario(formulario) -> dict[str, str]:
+    return {
+        chave[6:]: valor.strip()
+        for chave, valor in formulario.items()
+        if chave.startswith("texto_") and isinstance(valor, str) and valor.strip()
+    }
+
+
+@router.post("/relatorios/potenciais", include_in_schema=False)
+async def gerar_potenciais(
+    request: Request,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.reports import potenciais
+
+    formulario = await request.form()
+    quantos = formulario.get("quantos")
+    quantidade = int(quantos) if quantos and quantos.isdigit() else 8
+
+    montado = potenciais.montar(s, quantos=quantidade, textos=_textos_do_formulario(formulario))
+    if not montado.grupo:
+        return _voltar("/relatorios?aviso=Nenhum aluno com prova realizada no período.")
+
+    ciclos = montado.ciclos
+    nome = f"Analise Potenciais de Aprovacao - 1a Fase - Ciclos {ciclos[0]} a {ciclos[-1]}.pdf"
+    ident = _guardar_relatorio(
+        s, usuario, "potenciais", nome, potenciais.gerar(montado), montado.textos
+    )
+    return _voltar(f"/relatorios/{ident}/baixar")
+
+
+@router.post("/relatorios/unificado", include_in_schema=False)
+async def gerar_unificado(
+    request: Request,
+    usuario: Usuario = Depends(auth.exigir_admin),
+    s: Session = Depends(auth.obter_sessao),
+):
+    from app.reports import unificado
+
+    formulario = await request.form()
+    montado = unificado.montar(s, textos=_textos_do_formulario(formulario))
+    ciclos = montado.dados.ciclos
+    nome = f"Relatorio Unificado - Ciclos {ciclos[0]} a {ciclos[-1]} - Turma ITA 2026.pdf"
+    ident = _guardar_relatorio(
+        s, usuario, "unificado", nome, unificado.gerar(montado), montado.textos
+    )
+    return _voltar(f"/relatorios/{ident}/baixar")

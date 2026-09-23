@@ -166,6 +166,9 @@ class ClassificacaoPoliedro(Base):
     posicao: Mapped[int | None] = mapped_column(Integer)
     nota: Mapped[float | None] = mapped_column(Float)
     base_ranking: Mapped[int | None] = mapped_column(Integer)
+    # Aprovacao pelo criterio do POLIEDRO, que nao e o mesmo da escola: aqui vale o
+    # corte da rede, enquanto rules.avaliar aplica o corte definido pela coordenacao.
+    aprovado: Mapped[bool | None] = mapped_column(Boolean)
 
 
 class Usuario(Base):

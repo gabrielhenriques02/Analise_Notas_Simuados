@@ -74,6 +74,39 @@
 
 {% endif %}
 
+{% if escopo.admin %}
+<div class="secao">
+  <h2>Relatórios da turma inteira</h2>
+  <p class="legenda">Cruzam todas as matérias, então são exclusivos da coordenação.</p>
+</div>
+<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px">
+  <form class="cartao" method="post" action="/relatorios/potenciais">
+    <strong style="font-size:13px">Análise de potenciais de aprovação</strong>
+    <p class="legenda" style="margin:4px 0 8px">
+      Uma página por aluno: trajetória, aproveitamento por nível e frente, e onde cada um trava.
+    </p>
+    <label style="font-size:12px; color:var(--tinta-3)">quantos alunos:
+      <input type="number" name="quantos" value="8" min="1" max="20"
+             style="width:56px; font:inherit; padding:4px 6px; border:1px solid var(--linha-forte); border-radius:5px">
+    </label>
+    <textarea name="texto_GRUPO" rows="3" placeholder="Leitura da coordenação sobre o grupo (opcional)."
+              style="width:100%; margin-top:8px; font:inherit; font-size:13px; padding:8px; border:1px solid var(--linha-forte); border-radius:6px"></textarea>
+    <button class="botao" style="width:auto; padding:8px 18px; margin-top:8px">Gerar PDF e baixar</button>
+  </form>
+
+  <form class="cartao" method="post" action="/relatorios/unificado">
+    <strong style="font-size:13px">Relatório unificado</strong>
+    <p class="legenda" style="margin:4px 0 8px">
+      Visão executiva de todos os ciclos e as duas fases, com a classificação no Sistema Poliedro.
+      {% if not tem_poliedro %}<strong>Sem dados do Poliedro importados</strong> — as colunas de ranking sairão vazias.{% endif %}
+    </p>
+    <textarea name="texto_PANORAMA" rows="3" placeholder="Leitura executiva do período (opcional)."
+              style="width:100%; margin-top:8px; font:inherit; font-size:13px; padding:8px; border:1px solid var(--linha-forte); border-radius:6px"></textarea>
+    <button class="botao" style="width:auto; padding:8px 18px; margin-top:8px">Gerar PDF e baixar</button>
+  </form>
+</div>
+{% endif %}
+
 {% if gerados %}
 <div class="secao"><h2>Gerados recentemente</h2></div>
 <div class="cartao">

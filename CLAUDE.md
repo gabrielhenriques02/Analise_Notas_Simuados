@@ -100,6 +100,34 @@ Nota por matéria = `acertos × 10/12`. Média geral = `média(MAT, FÍS, QUÍ)`
   o teto sai dele, senão aparecem marcas como 47% ou um teto de 80% para um máximo de
   40%, que espreme as colunas à metade.
 
+## Sistema Poliedro (app/ingest/poliedro.py)
+
+Dois arquivos por ciclo: `Resultado - 1a Fase - Ciclo N.xlsx` (aba
+`Classificação Madan`) e `Resultado Final - Ciclo N.xlsx` (aba `Madan Modelo ITA`).
+
+- **O cabeçalho é procurado pelos rótulos `ALUNO` e `RM`**, nunca por linha fixa: ele
+  está na linha 10 num arquivo e na 9 no outro.
+- **Casar alunos pelo RM e, na falta dele, pelo reconciliador** — o Poliedro escreve
+  `GONÇAVELS` e `ABREU DE LIMA` como a planilha de correção, e comparação direta de
+  nome deixava dois alunos fora do ranking em silêncio.
+- **`aprovado` é o critério do POLIEDRO**, não o da escola. O relatório unificado
+  conta 7 aprovados na 1ª fase do ciclo 1 porque usa a coluna da rede; pelo nosso
+  corte seriam 5. Os dois números são válidos e medem coisas diferentes.
+- Conferido: Murilo no ciclo 1 = 8º na 1ª fase e 84º na final; mediana da turma 626º.
+
+## Relatórios (regras de layout aprendidas na marra)
+
+- **`secao()` precisa de `x` em layout de duas colunas** — sem ele os dois títulos
+  caem no mesmo ponto e se sobrepõem.
+- **Nunca posicionar por deslocamento fixo para trás** (`y - 190`): com a tabela mais
+  curta que o previsto, o bloco vai parar acima do topo da página.
+- **Conferir se duas tabelas lado a lado cabem** em `LARGURA_UTIL` antes de dividir:
+  com 5 ciclos a tabela do unificado mede 496pt e duas somam 1008pt em 774 úteis.
+- **Barras: `valor` é o comprimento, `texto` é o rótulo.** Mostrar "100%" para a
+  matéria com mais cortes é enganoso — o dado é a contagem.
+- `marcas=6` com teto 10 dá passo 2; com o padrão 5 o passo vira 2,5 e as marcas
+  saem arredondadas para 2 e 8.
+
 ## Privacidade — o repositório é PÚBLICO
 
 Nenhum dado de aluno vai para o git. Nunca commitar `.xlsx`, `.pdf`, `.db` nem nada de

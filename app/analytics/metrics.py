@@ -182,13 +182,14 @@ def desempenho(s: Session, prova: Prova) -> DesempenhoProva:
 
     # A inferencia por prova zerada erra quando o aluno fez a prova e tirou zero.
     # Quando a coordenacao marca a falta como nao confirmada, ele volta a contar.
-    nao_faltou = {
-        f.aluno_id
-        for f in s.scalars(
-            select(Falta).where(Falta.prova_id == prova.id, Falta.confirmada.is_(False))
-        )
+    decidido: dict[int, bool] = {}
+    for falta in s.scalars(
+        select(Falta).where(Falta.prova_id == prova.id, Falta.confirmada.isnot(None))
+    ):
+        decidido[falta.aluno_id] = not falta.confirmada
+    esteve = {
+        r.aluno_id: decidido.get(r.aluno_id, r.presente) for r in resultados
     }
-    esteve = {r.aluno_id: (r.presente or r.aluno_id in nao_faltou) for r in resultados}
 
     presentes_ids = [r.aluno_id for r in resultados if esteve[r.aluno_id]]
     respostas: dict[int, dict[int, float]] = {}

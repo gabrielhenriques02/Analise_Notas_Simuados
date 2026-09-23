@@ -169,17 +169,19 @@ class Documento:
 
     # ── blocos ──────────────────────────────────────────────────────────────────
 
-    def secao(self, y: float, titulo: str, legenda: str = "") -> float:
+    def secao(self, y: float, titulo: str, legenda: str = "", *, x: float = MARGEM) -> float:
+        """Titulo de secao. O `x` e obrigatorio em layout de duas colunas: sem ele
+        os dois titulos caem no mesmo ponto e se sobrepoem."""
         c = self._canvas
         c.setFillColor(cor(charts.NAVY))
-        c.rect(MARGEM, self._y(y + 8.5), 2.5, 9, stroke=0, fill=1)
+        c.rect(x, self._y(y + 8.5), 2.5, 9, stroke=0, fill=1)
         c.setFont(FORTE, 8.4)
-        c.drawString(MARGEM + 8, self._y(y + 7), titulo.upper())
+        c.drawString(x + 8, self._y(y + 7), titulo.upper())
         avanco = 14.0
         if legenda:
             c.setFont(CORPO, 7.4)
             c.setFillColor(cor(charts.TINTA_3))
-            c.drawString(MARGEM + 8, self._y(y + 18), legenda)
+            c.drawString(x + 8, self._y(y + 18), legenda)
             avanco = 25.0
         return y + avanco
 
