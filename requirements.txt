@@ -1,0 +1,26 @@
+# Web
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+itsdangerous
+
+# Banco
+sqlalchemy
+
+# Autenticacao
+argon2-cffi
+
+# Planilha
+openpyxl
+
+# PDF: leitura/recorte das provas
+pymupdf
+
+# PDF: geracao dos relatorios
+reportlab
+svglib
+
+# Testes
+pytest
+httpx2

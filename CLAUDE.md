@@ -1,0 +1,68 @@
+# Análise de Simulados — Turma ITA 2026
+
+Aplicação web (FastAPI + Jinja2 + SQLite) que lê a planilha de correção dos simulados,
+exibe as análises na interface e gera relatórios em PDF.
+
+## Regras de negócio — decididas com a coordenação, valem sobre a planilha
+
+- **Aprovação:** `> 4,0` em **cada** matéria **e** `> 5,0` na média de Mat+Fís+Quí.
+  A planilha usa `4,16` numa fórmula antiga; **ignorar**. Os dois valores são
+  configuráveis (`CORTE_MATERIA`, `CORTE_GERAL`).
+- **Inglês** entra no mínimo por matéria, mas **não** entra na média geral.
+- **Ausentes são excluídos de toda estatística** e listados à parte como
+  `AUSENTE — não realizou a prova`.
+- **Faltas** não existem como coluna: são inferidas (prova zerada ou linha ausente) e
+  precisam de **confirmação humana** antes de virar registro.
+- **Classificação** está vazia no ciclo 5 — sempre calcular, nunca ler da planilha.
+- **Gabarito** aceita **múltiplas alternativas corretas** (`A/E`) e o estado
+  `ANULADA`, que conta como acerto para todos.
+- **Acerto é derivado** de `alternativa_marcada == gabarito`, não importado como 0/1.
+
+## Mapeamento das questões (1ª fase, 48 questões)
+
+`MAT = Q1–Q12` · `FÍS = Q13–Q24` · `QUÍ = Q25–Q36` · `ING = Q37–Q48`
+Nota por matéria = `acertos × 10/12`. Média geral = `média(MAT, FÍS, QUÍ)`.
+
+2ª fase: 10 questões discursivas por matéria, 0–10 cada. Nota = média das dez.
+
+## Armadilhas da planilha
+
+- Nomes têm 89 grafias para ~41 pessoas. Normalizar (maiúscula, sem acento, espaços
+  colapsados) **e** manter tabela de apelidos: `GONCALVES`↔`GONÇAVELS`,
+  `ABREU LIMA`↔`ABREU DE LIMA`.
+- Linhas fantasma em `CORREÇÃO 2ª 2025` (583–667): filtrar por `NOME` não-vazio.
+- `NÍVEL SIMULADOS` tem **duas tabelas independentes** na mesma aba (`A1:L19` e `N2:BJ8`),
+  com vocabulários diferentes: `MÉDIO` na 2ª fase, `MÉDIA` na 1ª. Normalizar.
+- `RM` em `CORREÇÃO REDAÇÃO` mistura número e string com TAB (`"\t0383083"`).
+- Arredondar na leitura: o arquivo guarda ruído de float (`5.0999999999999996`).
+
+## Privacidade — o repositório é PÚBLICO
+
+Nenhum dado de aluno vai para o git. Nunca commitar `.xlsx`, `.pdf`, `.db` nem nada de
+`data/`, `planilha_dados/`, `exemplos_relatórios/`, `exemplos_pdf_provas/`.
+O hook de `pre-commit` recusa; não contorne com `git add -f`.
+
+## Ambiente
+
+Python 3.14 **sem pip no sistema** e sem Node. Tudo roda dentro de `.venv`, criada por
+`scripts/bootstrap.sh` sem `sudo`. Use `.venv/bin/python` e `.venv/bin/pytest`.
+Em PyMuPDF, importar `pymupdf` (não `fitz`, que está descontinuado).
+
+## Verificação
+
+Os relatórios em `exemplos_relatórios/` são a referência validada. Qualquer mudança em
+`app/analytics/` deve manter estes números:
+
+| Referência | Esperado |
+|---|---|
+| Ciclo 5 · 1ª Fase · Matemática | média 5,61 · variação +0,90 · 26/30 acima do corte · top5 8,67 · 4 questões com erro ≥ 50% |
+| Ciclo 5 · 2ª Fase · Matemática | média 3,05 · mediana 2,60 · 11/34 acima do corte · Q1 4,79/10 → 47,9% |
+| Potenciais · Murilo Coser | geral C1 8,61 · regularidade 0,73 (desvio populacional) · fáceis/prova 3,2 |
+| Unificado | índice de dificuldade C1 1ª fase 2,06 · média das posições Murilo 70º |
+
+## Convenções
+
+- Interface, mensagens de erro, nomes de tela e commits em **português**.
+- Números no padrão brasileiro: vírgula decimal, ordinal `º`, milhar com ponto.
+- Código (variáveis, funções, tabelas) em português sem acento: `resultado_prova`,
+  `nota_final`, `calcular_media_turma`.

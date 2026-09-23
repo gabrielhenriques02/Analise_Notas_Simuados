@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Recusa commits que contenham dados de alunos.
+# O repositorio e publico; um unico vazamento expoe dado pessoal de menores.
+set -uo pipefail
+
+# core.quotepath=false e -z sao obrigatorios: sem eles o git escapa nomes
+# acentuados entre aspas ("planilha_dados/CORRE\303\207...") e as ancoras
+# ^pasta/ e \.ext$ deixam de casar — exatamente o caso deste projeto.
+bloqueados=$(
+  git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR -z \
+    | tr '\0' '\n' \
+    | grep -iE '(^data/|^planilha_dados/|^exemplos_relat|^exemplos_pdf_provas/|\.(xlsx|xlsm|xltx|db|sqlite|sqlite3|pdf)$)' \
+    | grep -vE '^samples/' || true
+)
+
+if [ -n "$bloqueados" ]; then
+  echo ""
+  echo "  COMMIT BLOQUEADO — arquivos com dados de alunos no indice:"
+  echo ""
+  echo "$bloqueados" | sed 's/^/     /'
+  echo ""
+  echo "  Este repositorio e PUBLICO. Remova do indice antes de commitar:"
+  echo "     git restore --staged <arquivo>"
+  echo ""
+  echo "  Se o arquivo e realmente publico (ex: samples/ com nomes ficticios),"
+  echo "  ajuste o filtro em scripts/pre-commit."
+  echo ""
+  exit 1
+fi
+exit 0
